@@ -7,7 +7,7 @@
         public string? CodigoCpi { get; set; } = null;
         public List<ItemCambio> Items { get; set; } = new();
         public List<string> TodosCodigos { get; set; } = new();
-        public List<ItemCambio> Nuevos { get; set; } = new();      // nuevas líneas (con codigo_dpv = '00100000459')
+        public List<ItemCambio> Nuevos { get; set; } = new();      
     }
 
     public class ItemCambio

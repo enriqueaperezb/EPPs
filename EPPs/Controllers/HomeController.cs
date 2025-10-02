@@ -137,7 +137,7 @@ namespace EPPs.Controllers
             // Detalles
             await using (var cmd = new SqlCommand(sqlDetalles, conn))
             {
-                cmd.Parameters.Add(new SqlParameter("@codigo_cpi", SqlDbType.Int) { Value = codigo_cpi });
+                cmd.Parameters.Add(new SqlParameter("@codigo_cpi", SqlDbType.NVarChar, 50) { Value = codigo_cpi });
                 await using var rdr = await cmd.ExecuteReaderAsync();
                 while (await rdr.ReadAsync())
                 {
