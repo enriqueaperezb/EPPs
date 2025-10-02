@@ -6,8 +6,21 @@
 
 <h1 class="mb-3">Registros</h1>
 
+    <!-- Empresa -->
+    <div class="d-flex align-items-center mb-2" style="max-width:480px;">
+        <label for="empresaSelect" class="me-2 fw-bold">Empresa:</label>
+        <select id="empresaSelect" class="form-select">
+            <option value="">Seleccione la empresa...</option>
+            <option value="Bellarosa">Bellarosa</option>
+            <option value="Qualisa">Qualisa</option>
+            <option value="Royal Flowers">Royal Flowers</option>
+        </select>
+    </div>
+
 <form asp-action="Index" method="get" class="mb-3" role="search">
+    <!-- Carnet -->
     <div style="display:flex; gap:.5rem; align-items:center;">
+        <label for="codigo_emp" class="me-2 fw-bold">Carnét:</label>
         <input type="text"
                name="codigo_emp"
                value="@codigo_emp"
@@ -19,14 +32,58 @@
     </div>
 </form>
 
-<div class="row">
-    <div class="col-12 col-lg-7">
-        <h5>Maestro</h5>
-        <table id="tabla-maestro" class="table table-hover table-striped align-middle">
+    <!-- Nombre del empleado -->
+    <div class="d-flex align-items-center mb-2" style="max-width:480px;">
+        <label for="nombreEmpleado" class="me-2 fw-bold">Nombre:</label>
+        <input type="text" class="form-control" id="nombreEmpleado"
+               value="@((string)(ViewBag.NombreEmpleado ?? ""))" readonly />
+    </div>
+
+<style>
+    /* Paneles apilados con scroll vertical y encabezado fijo */
+    .panel {
+        border: 1px solid #e5e7eb;
+        border-radius: .5rem;
+        padding: .5rem .75rem;
+        background: #fff;
+        box-shadow: 0 1px 2px rgba(0,0,0,.03);
+    }
+
+    #maestro-panel {
+        height: 25vh;
+        display: flex;
+        flex-direction: column;
+    }
+
+    #detalle-panel {
+        height: 40vh;
+        display: flex;
+        flex-direction: column;
+    }
+
+    /* La parte scrollable dentro de cada panel */
+    .panel-scroll {
+        overflow-y: auto;
+    }
+
+    /* Encabezado pegajoso de las tablas para que no se desplace */
+    .table-sticky thead th {
+        position: sticky;
+        top: 0;
+        background: #f8f9fa; /* o #fff si prefieres */
+        z-index: 2;
+    }
+</style>
+
+
+<!-- PANEL 1: MAESTRO (25% alto) -->
+<div id="maestro-panel" class="panel">
+    <h5 class="mb-2">Maestro</h5>
+    <div class="panel-scroll">
+        <table id="tabla-maestro" class="table table-hover table-striped align-middle table-sticky">
             <thead>
                 <tr>
                     <th>Código</th>
-                    <th>Empleado</th>
                     <th>Fecha</th>
                     <th>Observación</th>
                 </tr>
@@ -38,7 +95,6 @@
                     {
                         <tr class="fila-maestro" data-codigo_cpi="@r.Codigo" style="cursor:pointer;">
                             <td>@r.Codigo</td>
-                            <td>@r.Empleado</td>
                             <td>@r.Fecha.ToString("yyyy-MM-dd")</td>
                             <td>@r.Observacion</td>
                         </tr>
@@ -51,9 +107,13 @@
             </tbody>
         </table>
     </div>
+</div>
 
-    <div class="col-12 col-lg-5">
-        <h5>Detalle</h5>
+<!-- PANEL 2: DETALLE (40% alto) -->
+<div id="detalle-panel" class="panel mt-2">
+    <h5 class="mb-2">Detalle</h5>
+    <!-- Importante: mantén este contenedor scrollable fijo y coloca adentro el contenedor que llenas con el parcial -->
+    <div class="panel-scroll">
         <div id="detalle-contenedor" class="border rounded p-2">
             <div class="text-muted">Selecciona un registro para ver el detalle…</div>
         </div>
@@ -61,52 +121,257 @@
 </div>
 
  @section Scripts {
-<script>
-(() => {
-    const tabla = document.getElementById('tabla-maestro');
-    const contenedorDetalle = document.getElementById('detalle-contenedor');
-    let seleccionada;
+    <script>
+        (() => {
+            const tabla = document.getElementById('tabla-maestro');
+            const contenedorDetalle = document.getElementById('detalle-contenedor');
+            let seleccionada;
 
-    async function cargarDetalle(id) {
-        // Mostrar un loader simple
-        contenedorDetalle.innerHTML = '<div class="text-muted">Cargando detalle…</div>';
-        try {
-                const resp = await fetch(`@Url.Action("previoInventario_detalle", "Home")?codigo_cpi=${encodeURIComponent(id)}`, {
-                method: 'GET',
-                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            async function cargarDetalle(id) {
+                // Mostrar un loader simple
+                contenedorDetalle.innerHTML = '<div class="text-muted">Cargando detalle…</div>';
+                try {
+                        const resp = await fetch(`@Url.Action("previoInventario_detalle", "Home")?codigo_cpi=${encodeURIComponent(id)}`, {
+                        method: 'GET',
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                    });
+                    if (!resp.ok) throw new Error('Error al cargar detalle');
+                    const html = await resp.text();
+                    contenedorDetalle.innerHTML = html;
+                } catch (err) {
+                    console.error(err);
+                    contenedorDetalle.innerHTML = '<div class="text-danger">No se pudo cargar el detalle.</div>';
+                }
+            }
+
+            tabla?.addEventListener('click', (e) => {
+                const tr = e.target.closest('tr.fila-maestro');
+                if (!tr) return;
+                    const id = tr.getAttribute('data-codigo_cpi');
+                if (!id) return;
+
+                // Resaltar selección
+                if (seleccionada) seleccionada.classList.remove('table-primary');
+                tr.classList.add('table-primary');
+                seleccionada = tr;
+
+                // Cargar detalle
+                cargarDetalle(id);
             });
-            if (!resp.ok) throw new Error('Error al cargar detalle');
-            const html = await resp.text();
-            contenedorDetalle.innerHTML = html;
-        } catch (err) {
-            console.error(err);
-            contenedorDetalle.innerHTML = '<div class="text-danger">No se pudo cargar el detalle.</div>';
-        }
-    }
 
-    tabla?.addEventListener('click', (e) => {
-        const tr = e.target.closest('tr.fila-maestro');
-        if (!tr) return;
-            const id = tr.getAttribute('data-codigo_cpi');
-        if (!id) return;
+            // (Opcional) Autoseleccionar la primera fila al cargar
+            const primera = tabla?.querySelector('tbody tr.fila-maestro');
+            if (primera) {
+                primera.classList.add('table-primary');
+                seleccionada = primera;
+                    const idIni = primera.getAttribute('data-codigo_cpi');
+                if (idIni) cargarDetalle(idIni);
+            }
+        })();
+    </script>
 
-        // Resaltar selección
-        if (seleccionada) seleccionada.classList.remove('table-primary');
-        tr.classList.add('table-primary');
-        seleccionada = tr;
+    <script>
+        (() => {
+          // --- utilidades cookie ---
+          function setCookie(name, value, days) {
+            const d = new Date();
+            d.setTime(d.getTime() + (days*24*60*60*1000));
+            document.cookie = `${name}=${encodeURIComponent(value)};expires=${d.toUTCString()};path=/`;
+          }
+          function getCookie(name) {
+            const cname = name + "=";
+            const arr = document.cookie.split(';');
+            for (let c of arr) {
+              c = c.trim();
+              if (c.indexOf(cname) === 0) return decodeURIComponent(c.substring(cname.length, c.length));
+            }
+            return "";
+          }
 
-        // Cargar detalle
-        cargarDetalle(id);
-    });
+          // --- dropdown empresa ---
+          const ddl = document.getElementById('empresaSelect');
+          if (!ddl) return;
 
-    // (Opcional) Autoseleccionar la primera fila al cargar
-    const primera = tabla?.querySelector('tbody tr.fila-maestro');
-    if (primera) {
-        primera.classList.add('table-primary');
-        seleccionada = primera;
-            const idIni = primera.getAttribute('data-codigo_cpi');
-        if (idIni) cargarDetalle(idIni);
-    }
-})();
-</script>
+          // 1) Intentamos preseleccionar usando el valor que envía el servidor (ViewBag.Empresa)
+          const fromServer = "@(ViewBag.Empresa as string ?? "")";
+          if (fromServer) {
+            ddl.value = fromServer;
+          } else {
+            // 2) Si el servidor no envió nada, leemos el cookie
+            const c = getCookie('empresa');
+            if (c) ddl.value = c;
+          }
+
+          // 3) Cuando cambie, guardamos cookie por 180 días
+          ddl.addEventListener('change', () => {
+            const val = ddl.value || "";
+            setCookie('empresa', val, 180);
+          });
+        })();
+    </script>
+
+    <script>
+        (() => {
+          if (window.__detalleHandlersBound) return;
+          window.__detalleHandlersBound = true;
+
+          const cont  = document.getElementById('detalle-contenedor');
+          const tabla = document.getElementById('tabla-maestro');
+          let idActual = null;         // codigo_cpi del maestro seleccionado
+          let newCounter = 0;          // contador para IDs temporales de líneas nuevas (new-1, new-2, ...)
+
+          // Maestro → recordamos el id seleccionado
+          tabla?.addEventListener('click', (e) => {
+            const tr = e.target.closest('tr.fila-maestro');
+            if (!tr) return;
+            idActual = tr.dataset.id || null;
+          });
+          const first = tabla?.querySelector('tbody tr.fila-maestro');
+          if (first && !idActual) idActual = first.dataset.codigo_cpi || null;
+
+          function getToken() {
+            const inp = cont.querySelector('input[name="__RequestVerificationToken"]');
+            return inp ? inp.value : '';
+          }
+
+          function renderEstadoCab(code) {
+            const el = document.getElementById('estadoCab');
+            if (!el) return;
+            el.textContent = code || '—';
+            let cls = 'badge ';
+            if (code === '00103') cls += 'bg-success';
+            else if (code === '00105') cls += 'bg-warning text-dark';
+            else cls += 'bg-secondary';
+            el.className = cls;
+          }
+
+          function insertarFilaNueva() {
+            if (!idActual) { alert('Primero selecciona un registro del maestro.'); return; }
+            const tbody = cont.querySelector('table tbody');
+            if (!tbody) return;
+
+            const firstSelect = cont.querySelector('select.articulo-select');
+            const optionsHtml = firstSelect ? firstSelect.innerHTML : '<option value="">-- Seleccione --</option>';
+
+            const tempId = `new-${++newCounter}`; // 👈 ID temporal único por línea nueva
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td><em>${tempId}</em></td>
+              <td>
+                <select class="form-select form-select-sm articulo-select" data-codigo="${tempId}">
+                  ${optionsHtml}
+                </select>
+              </td>
+              <td style="width:130px;">
+                <input type="number" step="1" class="form-control form-control-sm cantidad-input text-end"
+                       data-codigo="${tempId}" value="1" />
+              </td>
+              <td class="text-center">
+                <input type="checkbox" class="chk-linea" value="${tempId}" checked />
+              </td>
+            `;
+            tbody.prepend(tr);
+          }
+
+          async function doSaveOnce(buildPayloadFn) {
+            if (window.__saveInFlight) return;
+            window.__saveInFlight = true;
+            try {
+              const payload = buildPayloadFn();
+              if (!payload) { window.__saveInFlight = false; return; }
+
+              const resp = await fetch('@Url.Action("GuardarPrevioDetalle","Home")', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'RequestVerificationToken': getToken()
+                },
+                body: JSON.stringify(payload)
+              });
+              if (!resp.ok) throw new Error(await resp.text());
+              const data = await resp.json();
+
+              alert(`Cambios aplicados. Actualizados: ${data.updated} | Insertados: ${data.inserted} | Eliminados: ${data.deleted}`);
+              if (data.estado) renderEstadoCab(data.estado);
+
+              // Recarga el detalle desde BD para ver los nuevos con sus codigo_dpv reales
+              if (idActual && typeof cargarDetalle === 'function') {
+                await cargarDetalle(idActual);
+                // reset del contador si quieres que vuelva a contar desde 0 tras guardar
+                newCounter = 0;
+              }
+            } catch (err) {
+              console.error(err);
+              alert('No se pudieron guardar los cambios.');
+            } finally {
+              window.__saveInFlight = false;
+            }
+          }
+
+          // Delegación de eventos (un solo listener)
+          cont.addEventListener('click', (e) => {
+            const btnAgregar   = e.target.closest('#btn-agregar-linea');
+            const btnSelectAll = e.target.closest('#btn-seleccionar-todo');
+            const btnGuardar   = e.target.closest('#btn-guardar-detalle');
+
+            if (btnAgregar) {
+              e.preventDefault(); e.stopPropagation();
+              insertarFilaNueva();
+              return;
+            }
+
+            if (btnSelectAll) {
+              e.preventDefault(); e.stopPropagation();
+              cont.querySelectorAll('.chk-linea').forEach(cb => cb.checked = true);
+              return;
+            }
+
+            if (btnGuardar) {
+              e.preventDefault(); e.stopPropagation();
+              if (!idActual) { alert('Selecciona un registro del maestro.'); return; }
+
+              doSaveOnce(() => {
+                const items = [];         // existentes seleccionados -> UPDATE
+                const nuevos = [];        // nuevas filas -> INSERT (sin codigo_dpv)
+                const todosCodigos = [];  // SOLO códigos existentes visibles -> para DELETE
+
+                cont.querySelectorAll('tr').forEach(tr => {
+                  const sel = tr.querySelector('select.articulo-select');
+                  const qty = tr.querySelector('input.cantidad-input');
+                  const chk = tr.querySelector('input.chk-linea');
+                  if (!sel || !qty || !chk) return;
+
+                  const codigo = sel.dataset.codigo;   // puede ser '12345' (existente) o 'new-1' (temporal)
+                  const isNew = !codigo || codigo.startsWith('new-');
+
+                  // Para delete consideramos SOLO existentes (no agregues los 'new-*' a todosCodigos)
+                  if (!isNew) todosCodigos.push(codigo);
+
+                  // Solo guardamos filas seleccionadas
+                  if (!chk.checked) return;
+
+                  const codigoArticulo = sel.value;
+                  const cantidad = parseFloat((qty.value || '').replace(',', '.'));
+                  if (!codigoArticulo || isNaN(cantidad) || cantidad <= 0) return;
+
+                  if (isNew) {
+                    // Nueva línea → no enviamos 'Codigo'
+                    nuevos.push({ CodigoArticulo: codigoArticulo, Cantidad: cantidad });
+                  } else {
+                    // Existente → UPDATE
+                    items.push({ Codigo: codigo, CodigoArticulo: codigoArticulo, Cantidad: cantidad });
+                  }
+                });
+
+                // Enviamos codigoCpi para el INSERT
+                return { codigoCpi: idActual, items, todosCodigos, nuevos };
+              });
+            }
+          });
+        })();
+    </script>
+
 }
+
+

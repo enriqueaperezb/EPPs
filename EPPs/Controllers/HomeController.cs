@@ -1,9 +1,11 @@
 using EPPs.Models;
 using Microsoft.AspNetCore.Mvc;
-using System.Data;
-using System.Diagnostics;
+using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.Data.SqlClient;
 using System.Data;
+using System.Data;
+using System.Diagnostics;
+using System.Reflection;
 
 namespace EPPs.Controllers
 {
@@ -45,33 +47,61 @@ namespace EPPs.Controllers
             const string sql = @"
                 SELECT
                     dbo.i_cab_prev_inve.codigo_cpi codigo,
-                    dbo.r_empleado.nombre_emp + ' ' + dbo.r_empleado.nombre_emp empleado,
                     dbo.i_cab_prev_inve.fecha_elabo_cpi fecha,
                     ISNULL(dbo.i_cab_prev_inve.observacion_cpi,'') observacion
                 FROM
-                    dbo.i_cab_prev_inve INNER JOIN
-                    dbo.r_empleado ON dbo.i_cab_prev_inve.codigo_emp = dbo.r_empleado.codigo_emp
-                WHERE (dbo.i_cab_prev_inve.codigo_emp LIKE @codigo_emp) 
-                ORDER BY dbo.i_cab_prev_inve.codigo_cpi DESC;";
+                    dbo.i_cab_prev_inve
+                WHERE 
+                    (dbo.i_cab_prev_inve.codigo_emp LIKE @codigo_emp) AND
+                    (dbo.i_cab_prev_inve.codigo_epi = '00104')
+                ORDER BY 
+                    dbo.i_cab_prev_inve.codigo_cpi DESC;";
 
             await using var conn = new SqlConnection(connStr);
-            await using var cmd = new SqlCommand(sql, conn);
-            cmd.Parameters.Add(new SqlParameter("@codigo_emp", SqlDbType.NVarChar, 200) { Value = (object?)codigo_emp ?? DBNull.Value });
-
             await conn.OpenAsync();
-            await using var rdr = await cmd.ExecuteReaderAsync();
-            while (await rdr.ReadAsync())
+
+            await using (var cmd = new SqlCommand(sql, conn))
             {
-                resultados.Add(new previoInventario
+                cmd.Parameters.Add(new SqlParameter("@codigo_emp", SqlDbType.NVarChar, 200) { Value = (object?)codigo_emp ?? DBNull.Value });
+
+                await using var rdr = await cmd.ExecuteReaderAsync();
+                while (await rdr.ReadAsync())
                 {
-                    Codigo = rdr.GetString(0),
-                    Empleado = rdr.GetString(1),
-                    Fecha = rdr.GetDateTime(2),
-                    Observacion = rdr.GetString(3)
-                });
+                    resultados.Add(new previoInventario
+                    {
+                        Codigo = rdr.GetString(0),
+                        Fecha = rdr.GetDateTime(1),
+                        Observacion = rdr.GetString(2)
+                    });
+                }
+            }
+
+            // 2) Nombre del empleado (para mostrar bajo el input)
+            string nombreEmpleado = "";
+            if (!string.IsNullOrWhiteSpace(codigo_emp))
+            {
+                const string sqlNombre = @"
+                    SELECT TOP (1) 
+                        dbo.r_empleado.apellido_emp + ' ' + dbo.r_empleado.nombre_emp
+                    FROM 
+                        dbo.r_empleado 
+                    WHERE 
+                        dbo.r_empleado.codigo_emp = @codigo_emp;";
+
+                await using var cmd2 = new SqlCommand(sqlNombre, conn);
+                cmd2.Parameters.Add(new SqlParameter("@codigo_emp", SqlDbType.NVarChar, 200) { Value = codigo_emp });
+                var obj = await cmd2.ExecuteScalarAsync();
+                nombreEmpleado = obj as string ?? "";
             }
 
             ViewBag.Codigo_emp = codigo_emp; // para rellenar el input en la vista
+            // Nuevo: el nombre a mostrar bajo el campo de código
+            ViewBag.NombreEmpleado = nombreEmpleado;
+
+            // Lee cookie de empresa para preseleccionar en la vista
+            var empresaCookie = Request.Cookies["empresa"];
+            ViewBag.Empresa = empresaCookie ?? "";
+
             return View(resultados);
         }
 
@@ -79,11 +109,13 @@ namespace EPPs.Controllers
         public async Task<IActionResult> previoInventario_detalle(string codigo_cpi)
         {
             var detalles = new List<previoInventario_detalle>();
+            var articulos = new List<SelectListItem>();
             var connStr = _config.GetConnectionString("DefaultConnection");
 
-            const string sql = @"
+            const string sqlDetalles = @"
                 SELECT 
                     dbo.i_det_prev_inve.codigo_dpv codigo,
+                    dbo.c_articulo.codigo_art codigo_art,
                     dbo.c_articulo.nombre_art articulo,
                     dbo.i_det_prev_inve.cantidad_dpv cantidad
                 FROM 
@@ -92,24 +124,223 @@ namespace EPPs.Controllers
                 WHERE dbo.i_det_prev_inve.codigo_cpi = @codigo_cpi
                 ORDER BY dbo.c_articulo.nombre_art;";
 
-            await using var conn = new SqlConnection(connStr);
-            await using var cmd = new SqlCommand(sql, conn);
-            cmd.Parameters.Add(new SqlParameter("@codigo_cpi", SqlDbType.Int) { Value = codigo_cpi });
+            const string sqlArticulos = @"
+                SELECT 
+                    codigo_art, nombre_art
+                FROM 
+                    dbo.c_articulo
+                ORDER BY nombre_art;";
 
+            await using var conn = new SqlConnection(connStr);
             await conn.OpenAsync();
-            await using var rdr = await cmd.ExecuteReaderAsync();
-            while (await rdr.ReadAsync())
+
+            // Detalles
+            await using (var cmd = new SqlCommand(sqlDetalles, conn))
             {
-                detalles.Add(new previoInventario_detalle
+                cmd.Parameters.Add(new SqlParameter("@codigo_cpi", SqlDbType.Int) { Value = codigo_cpi });
+                await using var rdr = await cmd.ExecuteReaderAsync();
+                while (await rdr.ReadAsync())
                 {
-                    Codigo = rdr.GetString(0),
-                    Articulo = rdr.GetString(1),
-                    Cantidad = rdr.GetDecimal(2)
-                });
+                    detalles.Add(new previoInventario_detalle
+                    {
+                        Codigo = rdr.GetString(0),
+                        CodigoArticulo = rdr.GetString(1),   // <-- Nuevo, se llena el código
+                        Articulo = rdr.GetString(2),
+                        Cantidad = rdr.GetDecimal(3)
+                    });
+                }
             }
 
-            // Devolvemos un parcial que renderiza solo la tabla detalle
-            return PartialView("_previoInventario_detalle", detalles);
+            // Artículos
+            await using (var cmd2 = new SqlCommand(sqlArticulos, conn))
+            await using (var rdr2 = await cmd2.ExecuteReaderAsync())
+            {
+                while (await rdr2.ReadAsync())
+                {
+                    articulos.Add(new SelectListItem
+                    {
+                        Value = rdr2.GetString(0), // codigo_art
+                        Text = rdr2.GetString(1)   // nombre_art
+                    });
+                }
+            }
+
+            var vm = new previoInventario_detalleListado
+            {
+                Detalles = detalles,
+                Articulos = articulos
+            };
+
+            return PartialView("_previoInventario_detalle", vm);
         }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> GuardarPrevioDetalle([FromBody] GuardarDetallePrevioInventario req)
+        {
+            if (req == null) return BadRequest("Petición vacía.");
+
+            var connStr = _config.GetConnectionString("DefaultConnection");
+
+            const string SQL_UPD_DET = @"
+                UPDATE 
+                    dbo.i_det_prev_inve
+                SET 
+                    codigo_art = @codigo_art,
+                    cantidad_dpv = @cantidad,
+                    canti_pedid_dpv = @cantidad
+                WHERE 
+                    codigo_dpv = @codigo_dpv;";
+
+            const string SQL_INS_DET = @"
+                INSERT INTO 
+                    dbo.i_det_prev_inve (codigo_cpi, codigo_dpv, codigo_art, cantidad_dpv, canti_pedid_dpv, precio_dpv)
+                VALUES 
+                    (@codigo_cpi, (SELECT '00'+CONVERT(VARCHAR,MAX_NUM_BLO+1) FROM S_BLOQUEO WHERE TABLA_BLO LIKE 'i_det_prev_inve'), @codigo_art, @cantidad, @cantidad, 0);
+
+                UPDATE S_BLOQUEO SET MAX_NUM_BLO=MAX_NUM_BLO+1 FROM S_BLOQUEO WHERE TABLA_BLO LIKE 'i_det_prev_inve';";
+
+            // 1) Normaliza colecciones
+            var itemsSel = req.Items ?? new List<ItemCambio>();
+            var codigosAll = req.TodosCodigos ?? new List<string>();
+            var nuevos = req.Nuevos ?? new List<ItemCambio>();
+
+            // 2) Regla de estado
+            //    - Si NO hay seleccionados NI nuevos => 0012 (no borrar nada)
+            //    - Si hay seleccionados o nuevos    => 0011 (y se borran los no seleccionados)
+            var haySeleccion = (itemsSel.Count + nuevos.Count) > 0;
+            var estadoEpi = haySeleccion ? "00103" : "00105";
+
+            int updated = 0, inserted = 0, deleted = 0, headersUpdated = 0;
+
+            await using var cn = new SqlConnection(connStr);
+            await cn.OpenAsync();
+            await using var tx = await cn.BeginTransactionAsync();
+
+            // Preparamos lista de cabeceros involucrados (a partir de lo visible)
+            var headerIds = new List<string>();
+            try
+            {
+                if (codigosAll.Count > 0)
+                {
+                    var inParams = string.Join(",", codigosAll.Select((_, i) => $"@cd{i}"));
+                    var sqlHdr = $@"
+                        SELECT 
+                            DISTINCT d.codigo_cpi
+                        FROM 
+                            dbo.i_det_prev_inve AS d
+                        WHERE 
+                            d.codigo_dpv IN ({inParams});";
+
+                    await using (var cmdHdr = new SqlCommand(sqlHdr, cn, (SqlTransaction)tx))
+                    {
+                        for (int i = 0; i < codigosAll.Count; i++)
+                            cmdHdr.Parameters.Add(new SqlParameter($"@cd{i}", SqlDbType.NVarChar, 50) { Value = codigosAll[i] });
+
+                        await using var rdr = await cmdHdr.ExecuteReaderAsync();
+                        while (await rdr.ReadAsync())
+                            headerIds.Add(rdr.GetString(0));
+                    }
+                }
+
+                // 3) INSERT nuevos (requiere codigo_cpi)
+                if (nuevos.Count > 0)
+                {
+                    if (string.IsNullOrWhiteSpace(req.CodigoCpi))
+                        return BadRequest("Falta codigo_cpi para insertar nuevas líneas.");
+
+                    foreach (var n in nuevos)
+                    {
+                        await using var cmdIns = new SqlCommand(SQL_INS_DET, cn, (SqlTransaction)tx);
+                        cmdIns.Parameters.Add(new SqlParameter("@codigo_cpi", SqlDbType.NVarChar, 50) { Value = req.CodigoCpi });
+                        cmdIns.Parameters.Add(new SqlParameter("@codigo_art", SqlDbType.NVarChar, 50) { Value = (object?)n.CodigoArticulo ?? DBNull.Value });
+
+                        var pCant = cmdIns.Parameters.Add("@cantidad", SqlDbType.Decimal);
+                        pCant.Precision = 22; pCant.Scale = 15;
+                        pCant.Value = n.Cantidad;
+
+                        inserted += await cmdIns.ExecuteNonQueryAsync() - 1 ;
+                    }
+                }
+
+                // 4) UPDATE seleccionados
+                foreach (var it in itemsSel)
+                {
+                    await using var cmdUp = new SqlCommand(SQL_UPD_DET, cn, (SqlTransaction)tx);
+                    cmdUp.Parameters.Add(new SqlParameter("@codigo_art", SqlDbType.NVarChar, 50) { Value = (object?)it.CodigoArticulo ?? DBNull.Value });
+
+                    var pCant = cmdUp.Parameters.Add("@cantidad", SqlDbType.Decimal);
+                    pCant.Precision = 22; pCant.Scale = 15;
+                    pCant.Value = it.Cantidad;
+
+                    cmdUp.Parameters.Add(new SqlParameter("@codigo_dpv", SqlDbType.NVarChar, 50) { Value = it.Codigo });
+
+                    updated += await cmdUp.ExecuteNonQueryAsync();
+                }
+
+                // 5) DELETE no seleccionados (solo si hay selección)
+                if (haySeleccion && codigosAll.Count > 0)
+                {
+                    var setSel = new HashSet<string>(itemsSel.Select(x => x.Codigo));
+                    // si agregaste nuevos con código fijo, no estarán en codigosAll hasta que recargues desde BD,
+                    // así que el delete no los tocará (correcto).
+                    var paraEliminar = codigosAll.Where(c => !setSel.Contains(c)).ToList();
+                    if (paraEliminar.Count > 0)
+                    {
+                        var inDel = string.Join(",", paraEliminar.Select((_, i) => $"@del{i}"));
+                        var sqlDel = $"DELETE FROM dbo.i_det_prev_inve WHERE codigo_dpv IN ({inDel});";
+
+                        await using var cmdDel = new SqlCommand(sqlDel, cn, (SqlTransaction)tx);
+                        for (int i = 0; i < paraEliminar.Count; i++)
+                            cmdDel.Parameters.Add(new SqlParameter($"@del{i}", SqlDbType.NVarChar, 50) { Value = paraEliminar[i] });
+
+                        deleted = await cmdDel.ExecuteNonQueryAsync();
+                    }
+                }
+
+                // 6) Actualizar estado de cabecero(s) (0011/0012)
+                if (headerIds.Count > 0)
+                {
+                    var inHdr = string.Join(",", headerIds.Select((_, i) => $"@h{i}"));
+                    var sqlUpdHdr = $@"
+                        UPDATE 
+                            dbo.i_cab_prev_inve
+                        SET 
+                            codigo_epi = @epi,
+                            obser_tribu_cpi = 'Documento actualizado desde Tablet el ' + convert(varchar,getdate())
+                        WHERE 
+                            codigo_cpi IN ({inHdr});";
+
+                    await using var cmdHdrUpd = new SqlCommand(sqlUpdHdr, cn, (SqlTransaction)tx);
+                    cmdHdrUpd.Parameters.Add(new SqlParameter("@epi", SqlDbType.NVarChar, 10) { Value = estadoEpi });
+                    for (int i = 0; i < headerIds.Count; i++)
+                        cmdHdrUpd.Parameters.Add(new SqlParameter($"@h{i}", SqlDbType.NVarChar, 50) { Value = headerIds[i] });
+
+                    headersUpdated = await cmdHdrUpd.ExecuteNonQueryAsync();
+                }
+
+                await tx.CommitAsync();
+
+                // >>> Un único return con el resumen (el front muestra un solo alert)
+                return Ok(new
+                {
+                    updated,
+                    inserted, 
+                    deleted,
+                    headersUpdated,
+                    estado = estadoEpi
+                });
+            }
+            catch (Exception ex)
+            {
+                await tx.RollbackAsync();
+                _logger.LogError(ex, "Error en GuardarPrevioDetalle");
+                return StatusCode(500, "Error al guardar los cambios.");
+            }
+        }
+
     }
 }
+
+
+

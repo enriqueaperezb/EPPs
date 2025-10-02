@@ -1,32 +1,68 @@
-﻿@model IEnumerable<EPPs.Models.previoInventario_detalle>
+﻿@using Microsoft.AspNetCore.Mvc.Rendering
+@model EPPs.Models.previoInventario_detalleListado
+
+@Html.AntiForgeryToken()
+<div class="d-flex gap-2 mb-2">
+    <button id="btn-agregar-linea" class="btn btn-outline-primary btn-sm">Agregar línea</button>
+    <button id="btn-seleccionar-todo" class="btn btn-outline-secondary btn-sm">Seleccionar todo</button>
+    <button id="btn-guardar-detalle" class="btn btn-success btn-sm">Guardar</button>
+</div>
 
 <table class="table table-sm table-bordered table-striped align-middle">
     <thead>
         <tr>
-            <th>Código</th>
+            <th>Código (detalle)</th>
             <th>Artículo</th>
             <th>Cantidad</th>
-            <th>Seleccionar</th> 
+            <th>Seleccionar</th>
         </tr>
     </thead>
     <tbody>
-        @if (Model != null && Model.Any())
+        @if (Model.Detalles?.Any() == true)
         {
-            foreach (var d in Model)
+            foreach (var d in Model.Detalles)
             {
                 <tr>
                     <td>@d.Codigo</td>
-                    <td>@d.Articulo</td>
-                    <td>@d.Cantidad</td>
+
+                    <!-- Combo de artículos: muestra nombre, envía código -->
+                    <td>
+                        <select class="form-select form-select-sm articulo-select"
+                                data-codigo="@d.Codigo">
+                            @foreach (var a in Model.Articulos)
+                            {
+                                if (a.Value == d.CodigoArticulo)
+                                {
+                                    <option value="@a.Value" selected>@a.Text</option>
+                                }
+                                else
+                                {
+                                    <option value="@a.Value">@a.Text</option>
+                                }
+                            }
+                        </select>
+                    </td>
+
+                    <!-- Cantidad editable -->
+                    <td style="width:130px;">
+                        <input type="number"
+                               step="1"
+                               class="form-control form-control-sm cantidad-input text-end"
+                               data-codigo="@d.Codigo"
+                               value="@(d.Cantidad.ToString("F2", System.Globalization.CultureInfo.InvariantCulture))" />
+                    </td>
+
                     <td class="text-center">
-                        <input type="checkbox" name="detalleSeleccionado" value="@d.Codigo" />
+                        <input type="checkbox" class="chk-linea" value="@d.Codigo" />
                     </td>
                 </tr>
             }
         }
         else
         {
-            <tr><td colspan="6" class="text-center">Sin detalles</td></tr>
+            <tr><td colspan="4" class="text-center">Sin detalles</td></tr>
         }
     </tbody>
 </table>
+
+
