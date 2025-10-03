@@ -146,7 +146,7 @@
 
 <!-- Panel Detalle debajo, ancho completo -->
 <div id="detalle-panel" class="panel mt-3">
-    <!-- <h5 class="mb-2">Detalle de artículos a entregar</h5> -->
+    <h5 class="mb-2">Artículos a entregar</h5>
     <div class="panel-scroll" style="height:40vh; overflow-y:auto;">
         <div id="detalle-contenedor" class="pb-2">
             <div class="text-muted">Selecciona un registro para ver el detalle…</div>
@@ -216,6 +216,20 @@
     </script>
 
     <script>
+        function speak(text) {
+            if (!('speechSynthesis' in window) || !text) return;
+            // corta cualquier lectura previa
+            window.speechSynthesis.cancel();
+
+            const u = new SpeechSynthesisUtterance(text);
+            u.lang  = 'es-ES';   // español
+            u.rate  = 0.95;      // velocidad ligera
+            u.pitch = 1;         // tono natural
+            window.speechSynthesis.speak(u);
+        }
+    </script>
+
+    <script>
         (() => {
           // --- utilidades cookie ---
           function setCookie(name, value, days) {
@@ -269,7 +283,7 @@
           tabla?.addEventListener('click', (e) => {
             const tr = e.target.closest('tr.fila-maestro');
             if (!tr) return;
-            idActual = tr.dataset.id || null;
+            idActual = tr.dataset.codigo_cpi || null;
           });
           const first = tabla?.querySelector('tbody tr.fila-maestro');
           if (first && !idActual) idActual = first.dataset.codigo_cpi || null;

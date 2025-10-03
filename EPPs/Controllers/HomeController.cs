@@ -1,4 +1,4 @@
-using EPPs.Models;
+Ôªøusing EPPs.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.Data.SqlClient;
@@ -45,7 +45,7 @@ namespace EPPs.Controllers
                 ViewBag.Codigo_emp = "";
                 ViewBag.NombreEmpleado = "";
                 ViewBag.Empresa = Request.Cookies["empresa"] ?? "";
-                return View(new List<previoInventario>()); // ? sin datos
+                return View(new List<previoInventario>()); // ‚Üê sin datos
             }
 
             var resultados = new List<previoInventario>();
@@ -61,7 +61,8 @@ namespace EPPs.Controllers
                     dbo.i_cab_prev_inve
                 WHERE 
                     (dbo.i_cab_prev_inve.codigo_emp LIKE @codigo_emp) AND
-                    (dbo.i_cab_prev_inve.codigo_epi = '00104')
+                    (dbo.i_cab_prev_inve.codigo_epi = '00103') AND
+                    (dbo.i_cab_prev_inve.observacion_cpi LIKE 'EPP%') 
                 ORDER BY 
                     dbo.i_cab_prev_inve.codigo_cpi DESC;";
 
@@ -103,7 +104,7 @@ namespace EPPs.Controllers
             }
 
             ViewBag.Codigo_emp = codigo_emp; // para rellenar el input en la vista
-            // Nuevo: el nombre a mostrar bajo el campo de cÛdigo
+            // Nuevo: el nombre a mostrar bajo el campo de c√≥digo
             ViewBag.NombreEmpleado = nombreEmpleado;
 
             // Lee cookie de empresa para preseleccionar en la vista
@@ -125,7 +126,7 @@ namespace EPPs.Controllers
                     dbo.i_det_prev_inve.codigo_dpv codigo,
                     dbo.c_articulo.codigo_art codigo_art,
                     dbo.c_articulo.nombre_art articulo,
-                    dbo.i_det_prev_inve.cantidad_dpv cantidad
+                    dbo.i_det_prev_inve.cantidad_dpv cantidad -- el ultimo consumo de ese empleado fecha y cantidad ojo
                 FROM 
                     dbo.i_det_prev_inve INNER JOIN
                     dbo.c_articulo ON dbo.i_det_prev_inve.codigo_art = dbo.c_articulo.codigo_art 
@@ -152,14 +153,14 @@ namespace EPPs.Controllers
                     detalles.Add(new previoInventario_detalle
                     {
                         Codigo = rdr.GetString(0),
-                        CodigoArticulo = rdr.GetString(1),   // <-- Nuevo, se llena el cÛdigo
+                        CodigoArticulo = rdr.GetString(1),   // <-- Nuevo, se llena el c√≥digo
                         Articulo = rdr.GetString(2),
                         Cantidad = rdr.GetDecimal(3)
                     });
                 }
             }
 
-            // ArtÌculos
+            // Art√≠culos
             await using (var cmd2 = new SqlCommand(sqlArticulos, conn))
             await using (var rdr2 = await cmd2.ExecuteReaderAsync())
             {
@@ -188,7 +189,7 @@ namespace EPPs.Controllers
             // Reemplaza espacios por _
             var s = nombre.Trim().Replace(' ', '_');
 
-            // Quita caracteres inv·lidos de nombre de archivo
+            // Quita caracteres inv√°lidos de nombre de archivo
             foreach (var c in Path.GetInvalidFileNameChars())
                 s = s.Replace(c.ToString(), "");
 
@@ -199,7 +200,7 @@ namespace EPPs.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> GuardarPrevioDetalle([FromBody] GuardarDetallePrevioInventario req)
         {
-            if (req == null) return BadRequest("PeticiÛn vacÌa.");
+            if (req == null) return BadRequest("Petici√≥n vac√≠a.");
 
             var connStr = _config.GetConnectionString("DefaultConnection");
 
@@ -268,7 +269,7 @@ namespace EPPs.Controllers
                 if (nuevos.Count > 0)
                 {
                     if (string.IsNullOrWhiteSpace(req.CodigoCpi))
-                        return BadRequest("Falta codigo_cpi para insertar nuevas lÌneas.");
+                        return BadRequest("Falta codigo_cpi para insertar nuevas l√≠neas.");
 
                     foreach (var n in nuevos)
                     {
@@ -299,12 +300,12 @@ namespace EPPs.Controllers
                     updated += await cmdUp.ExecuteNonQueryAsync();
                 }
 
-                // 5) DELETE no seleccionados (solo si hay selecciÛn)
+                // 5) DELETE no seleccionados (solo si hay selecci√≥n)
                 if (haySeleccion && codigosAll.Count > 0)
                 {
                     var setSel = new HashSet<string>(itemsSel.Select(x => x.Codigo));
-                    // si agregaste nuevos con cÛdigo fijo, no estar·n en codigosAll hasta que recargues desde BD,
-                    // asÌ que el delete no los tocar· (correcto).
+                    // si agregaste nuevos con c√≥digo fijo, no estar√°n en codigosAll hasta que recargues desde BD,
+                    // as√≠ que el delete no los tocar√° (correcto).
                     var paraEliminar = codigosAll.Where(c => !setSel.Contains(c)).ToList();
                     if (paraEliminar.Count > 0)
                     {
@@ -328,7 +329,8 @@ namespace EPPs.Controllers
                             dbo.i_cab_prev_inve
                         SET 
                             codigo_epi = @epi,
-                            obser_tribu_cpi = 'Documento actualizado desde Tablet el ' + convert(varchar,getdate())
+                            s_u_codigo_usu = '004',
+                            obser_tribu_cpi = 'Documento actualizado desde Tablet el ' + convert(varchar,getdate()) 
                         WHERE 
                             codigo_cpi IN ({inHdr});";
 
@@ -341,7 +343,7 @@ namespace EPPs.Controllers
                 }
 
                 // ------------------------------------------------------------------
-                // GUARDAR FOTO (si llegÛ) + ACTUALIZAR pdf_normal_cpi en cabecera
+                // GUARDAR FOTO (si lleg√≥) + ACTUALIZAR pdf_normal_cpi en cabecera
                 // ------------------------------------------------------------------
                 string? fotoPathRel = null;
 
@@ -379,7 +381,7 @@ namespace EPPs.Controllers
                     var fullPath = Path.Combine(folder, fileSafeName);
                     await System.IO.File.WriteAllBytesAsync(fullPath, bytes);
 
-                    // 2.4 Path relativo para servir est·tico
+                    // 2.4 Path relativo para servir est√°tico
                     fotoPathRel = $"/uploads/fotos/{fileSafeName}";
 
                     // 2.5 Actualizar i_cab_prev_inve.pdf_normal_cpi con el path
@@ -398,7 +400,7 @@ namespace EPPs.Controllers
 
                 await tx.CommitAsync();
 
-                // Guardar foto (si llegÛ)
+                // Guardar foto (si lleg√≥)
                 try
                 {
                     if (!string.IsNullOrWhiteSpace(req.FotoBase64))
@@ -424,7 +426,7 @@ namespace EPPs.Controllers
                     _logger.LogError(ex, "Error guardando foto");
                 }
 
-                // >>> Un ˙nico return con el resumen (el front muestra un solo alert)
+                // >>> Un √∫nico return con el resumen (el front muestra un solo alert)
                 return Ok(new
                 {
                     updated,
