@@ -1,43 +1,10 @@
 ﻿@model IEnumerable<EPPs.Models.previoInventario>
 @{
-    ViewData["Title"] = "Registros";
+    ViewData["Title"] = "Entrega de EPPs";
     var codigo_emp = ViewBag.Codigo_emp as string ?? "";
 }
 
-<h1 class="mb-3">Registros</h1>
-
-    <!-- Empresa -->
-    <div class="d-flex align-items-center mb-2" style="max-width:480px;">
-        <label for="empresaSelect" class="me-2 fw-bold">Empresa:</label>
-        <select id="empresaSelect" class="form-select">
-            <option value="">Seleccione la empresa...</option>
-            <option value="Bellarosa">Bellarosa</option>
-            <option value="Qualisa">Qualisa</option>
-            <option value="Royal Flowers">Royal Flowers</option>
-        </select>
-    </div>
-
-<form asp-action="Index" method="get" class="mb-3" role="search">
-    <!-- Carnet -->
-    <div style="display:flex; gap:.5rem; align-items:center;">
-        <label for="codigo_emp" class="me-2 fw-bold">Carnét:</label>
-        <input type="text"
-               name="codigo_emp"
-               value="@codigo_emp"
-               placeholder="Código del empleado..."
-               class="form-control"
-               style="max-width:320px;" />
-        <button type="submit" class="btn btn-primary">Buscar</button>
-        <a asp-action="Index" class="btn btn-outline-secondary">Limpiar</a>
-    </div>
-</form>
-
-    <!-- Nombre del empleado -->
-    <div class="d-flex align-items-center mb-2" style="max-width:480px;">
-        <label for="nombreEmpleado" class="me-2 fw-bold">Nombre:</label>
-        <input type="text" class="form-control" id="nombreEmpleado"
-               value="@((string)(ViewBag.NombreEmpleado ?? ""))" readonly />
-    </div>
+<h5 class="mb-3">Entrega de EPPs</h5>
 
 <style>
     /* Paneles apilados con scroll vertical y encabezado fijo */
@@ -75,52 +42,130 @@
     }
 </style>
 
+<style>
+    #webcam-box {
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        border-radius: .5rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,.08);
+        padding: .5rem;
+    }
 
-<!-- PANEL 1: MAESTRO (25% alto) -->
-<div id="maestro-panel" class="panel">
-    <h5 class="mb-2">Maestro</h5>
-    <div class="panel-scroll">
-        <table id="tabla-maestro" class="table table-hover table-striped align-middle table-sticky">
-            <thead>
-                <tr>
-                    <th>Código</th>
-                    <th>Fecha</th>
-                    <th>Observación</th>
-                </tr>
-            </thead>
-            <tbody>
-                @if (Model != null && Model.Any())
-                {
-                    foreach (var r in Model)
-                    {
-                        <tr class="fila-maestro" data-codigo_cpi="@r.Codigo" style="cursor:pointer;">
-                            <td>@r.Codigo</td>
-                            <td>@r.Fecha.ToString("yyyy-MM-dd")</td>
-                            <td>@r.Observacion</td>
+        #webcam-box video, #webcam-box canvas {
+            width: 100%;
+            border-radius: .25rem;
+            background: #000;
+            display: block;
+        }
+</style>
+
+<!-- Empresa -->
+<div class="d-flex align-items-center mb-2" style="max-width:480px;">
+    <label for="empresaSelect" class="me-2 fw-bold">Empresa:</label>
+    <select id="empresaSelect" class="form-select">
+        <option value="">Seleccione la empresa...</option>
+        <option value="Bellarosa">Bellarosa</option>
+        <option value="Continental Logistics">Continental Logistics</option>
+        <option value="Qualisa">Qualisa</option>
+        <option value="Royal Flowers">Royal Flowers</option>
+        <option value="Sisapamba">Sisapamba</option>
+    </select>
+</div>
+
+<form asp-action="Index" method="get" class="mb-3" role="search">
+    <!-- Carnet -->
+    <div style="display:flex; gap:.5rem; align-items:center;">
+        <label for="codigo_emp" class="me-2 fw-bold">Carnét:</label>
+        <input type="text"
+               name="codigo_emp"
+               value="@codigo_emp"
+               id="codigoEmpleado"
+               placeholder="Carné..."
+               class="form-control"
+               style="max-width:160px;" />
+        <button type="submit" class="btn btn-primary">Buscar</button>
+        <a asp-action="Index" class="btn btn-outline-secondary">Limpiar</a>
+        <!-- Nombre del empleado -->
+        
+            <input type="text" class="form-control" id="nombreEmpleado"
+                   value="@((string)(ViewBag.NombreEmpleado ?? ""))" readonly />
+        
+
+    </div>
+</form>
+
+<div class="row g-3">
+    <!-- Columna izquierda: Maestro -->
+    <div class="col-lg-9">
+        <div id="maestro-panel" class="panel">
+            <h5 class="mb-2">Previo Inventario - Consumos</h5>
+            <div class="panel-scroll" style="height:25vh; overflow-y:auto;">
+                <!-- tabla maestro -->
+                <table class="table table-sm table-hover">
+                    <thead class="table-light sticky-top">
+                        <tr>
+                            <th>Código</th>
+                            <th>Fecha</th>
+                            <th>Observación</th>
                         </tr>
-                    }
-                }
-                else
-                {
-                    <tr><td colspan="4" class="text-center">Sin resultados</td></tr>
-                }
-            </tbody>
-        </table>
+                    </thead>
+                    <tbody id="tabla-maestro">
+                        @if (Model != null && Model.Any())
+                        {
+                            foreach (var r in Model)
+                            {
+                                <tr class="fila-maestro" data-codigo_cpi="@r.Codigo" style="cursor:pointer;">
+                                    <td>@r.Codigo</td>
+                                    <td>@r.Fecha.ToString("yyyy-MM-dd")</td>
+                                    <td>@r.Observacion</td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr><td colspan="4" class="text-center">Sin resultados</td></tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Columna derecha: Webcam -->
+    <div class="col-lg-3">
+        <div id="webcam-box">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <!-- <strong>Captura</strong> -->
+                <!-- <small id="fotoStatus" class="text-muted">sin foto</small> -->
+            </div>
+            <video id="cam" autoplay playsinline muted></video>
+            <canvas id="snap" class="d-none"></canvas>
+        </div>
     </div>
 </div>
 
-<!-- PANEL 2: DETALLE (40% alto) -->
-<div id="detalle-panel" class="panel mt-2">
-    <h5 class="mb-2">Detalle</h5>
-    <!-- Importante: mantén este contenedor scrollable fijo y coloca adentro el contenedor que llenas con el parcial -->
-    <div class="panel-scroll">
-        <div id="detalle-contenedor" class="border rounded p-2">
+<!-- Panel Detalle debajo, ancho completo -->
+<div id="detalle-panel" class="panel mt-3">
+    <!-- <h5 class="mb-2">Detalle de artículos a entregar</h5> -->
+    <div class="panel-scroll" style="height:40vh; overflow-y:auto;">
+        <div id="detalle-contenedor" class="pb-2">
             <div class="text-muted">Selecciona un registro para ver el detalle…</div>
         </div>
     </div>
 </div>
 
  @section Scripts {
+    <script>
+            (() => {
+         document.addEventListener("DOMContentLoaded", () => {
+      const inputCodigo = document.getElementById("codigoEmpleado");
+      if (inputCodigo) {
+        inputCodigo.focus();   // 🔥 el cursor se coloca automáticamente aquí
+      }
+    });
+         })();
+    </script>
+
     <script>
         (() => {
             const tabla = document.getElementById('tabla-maestro');
@@ -277,7 +322,8 @@
           async function doSaveOnce(buildPayloadFn) {
             if (window.__saveInFlight) return;
             window.__saveInFlight = true;
-            try {
+            try {            
+
               const payload = buildPayloadFn();
               if (!payload) { window.__saveInFlight = false; return; }
 
@@ -293,7 +339,7 @@
               const data = await resp.json();
 
               alert(`Cambios aplicados. Actualizados: ${data.updated} | Insertados: ${data.inserted} | Eliminados: ${data.deleted}`);
-              if (data.estado) renderEstadoCab(data.estado);
+              window.location.href = '@Url.Action("Index", "Home")?reset=1';
 
               // Recarga el detalle desde BD para ver los nuevos con sus codigo_dpv reales
               if (idActual && typeof cargarDetalle === 'function') {
@@ -331,6 +377,9 @@
               e.preventDefault(); e.stopPropagation();
               if (!idActual) { alert('Selecciona un registro del maestro.'); return; }
 
+              // 1) Capturar automáticamente el frame actual de la cámara
+              capture();
+
               doSaveOnce(() => {
                 const items = [];         // existentes seleccionados -> UPDATE
                 const nuevos = [];        // nuevas filas -> INSERT (sin codigo_dpv)
@@ -365,10 +414,44 @@
                 });
 
                 // Enviamos codigoCpi para el INSERT
-                return { codigoCpi: idActual, items, todosCodigos, nuevos };
+                      return { codigoCpi: idActual, items, todosCodigos, nuevos, FotoBase64: fotoBase64 || null };
               });
             }
           });
+
+        // --- Cámara ---
+        const video = document.getElementById('cam');
+        const canvas = document.getElementById('snap');
+        // const st = document.getElementById('fotoStatus');
+
+        let stream = null;
+        let fotoBase64 = null; // se enviará en el POST si existe
+
+        async function startCam() {
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: 640, height: 480 }, audio: false });
+            video.srcObject = stream;
+            //st.textContent = 'grabando...';
+          } catch (e) {
+            console.error(e);
+            alert('No se pudo acceder a la cámara.');
+          }
+        }
+
+        function capture() {
+          const w = video.videoWidth || 640;
+          const h = video.videoHeight || 480;
+          canvas.width = w; canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(video, 0, 0, w, h);
+          fotoBase64 = canvas.toDataURL('image/jpeg', 0.92); // <-- JPEG
+          //st.textContent = 'capturada';
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+          startCam(); // se ejecuta automáticamente al cargar la página
+        });
+
         })();
     </script>
 

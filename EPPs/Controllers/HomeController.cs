@@ -12,15 +12,15 @@ namespace EPPs.Controllers
     public class HomeController : Controller
     {
         private readonly IConfiguration _config;
-
         private readonly ILogger<HomeController> _logger;
+        private readonly IWebHostEnvironment _env; // <-- NUEVO
 
-        public HomeController(ILogger<HomeController> logger, IConfiguration config)
+        public HomeController(IConfiguration config, ILogger<HomeController> logger, IWebHostEnvironment env)
         {
-            _logger = logger;
             _config = config;
+            _logger = logger;
+            _env = env; // <-- NUEVO
         }
-
         public IActionResult Index()
         {
             return View();
@@ -38,8 +38,16 @@ namespace EPPs.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> Index(string? codigo_emp)
+        public async Task<IActionResult> Index(string? codigo_emp, bool reset = false)
         {
+            if (reset)
+            {
+                ViewBag.Codigo_emp = "";
+                ViewBag.NombreEmpleado = "";
+                ViewBag.Empresa = Request.Cookies["empresa"] ?? "";
+                return View(new List<previoInventario>()); // ? sin datos
+            }
+
             var resultados = new List<previoInventario>();
             var connStr = _config.GetConnectionString("DefaultConnection");
 
@@ -172,6 +180,19 @@ namespace EPPs.Controllers
             };
 
             return PartialView("_previoInventario_detalle", vm);
+        }
+
+        private static string SanitizarNombreArchivo(string nombre)
+        {
+            if (string.IsNullOrWhiteSpace(nombre)) return "empleado";
+            // Reemplaza espacios por _
+            var s = nombre.Trim().Replace(' ', '_');
+
+            // Quita caracteres inválidos de nombre de archivo
+            foreach (var c in Path.GetInvalidFileNameChars())
+                s = s.Replace(c.ToString(), "");
+
+            return s;
         }
 
         [HttpPost]
@@ -319,7 +340,89 @@ namespace EPPs.Controllers
                     headersUpdated = await cmdHdrUpd.ExecuteNonQueryAsync();
                 }
 
+                // ------------------------------------------------------------------
+                // GUARDAR FOTO (si llegó) + ACTUALIZAR pdf_normal_cpi en cabecera
+                // ------------------------------------------------------------------
+                string? fotoPathRel = null;
+
+                if (!string.IsNullOrWhiteSpace(req.FotoBase64) && !string.IsNullOrWhiteSpace(req.CodigoCpi))
+                {
+                    // 2.1 Obtener nombre del empleado por codigo_cpi
+                    string nombreEmpleado = "empleado";
+                    const string SQL_EMPLEADO = @"
+        SELECT TOP (1) emp.apellido_emp + ' ' + emp.nombre_emp
+        FROM dbo.i_cab_prev_inve cpi
+        INNER JOIN dbo.r_empleado emp ON emp.codigo_emp = cpi.codigo_emp
+        WHERE cpi.codigo_cpi = @codigo_cpi;";
+
+                    await using (var cmdEmp = new SqlCommand(SQL_EMPLEADO, cn, (SqlTransaction)tx))
+                    {
+                        cmdEmp.Parameters.Add(new SqlParameter("@codigo_cpi", SqlDbType.NVarChar, 50) { Value = req.CodigoCpi });
+                        var obj = await cmdEmp.ExecuteScalarAsync();
+                        if (obj is string s && !string.IsNullOrWhiteSpace(s)) nombreEmpleado = s;
+                    }
+
+                    // 2.2 Armar nombre de archivo: NombreEmpleado_sin_espacios + "_" + codigo_cpi + ".jpg"
+                    var fileSafeName = $"{SanitizarNombreArchivo(nombreEmpleado)}_{req.CodigoCpi}.jpg";
+
+                    // 2.3 Decodificar base64 y guardar en wwwroot/uploads/fotos/
+                    var base64 = req.FotoBase64!;
+                    var commaIdx = base64.IndexOf(',');
+                    if (commaIdx > 0) base64 = base64[(commaIdx + 1)..];
+
+                    var bytes = Convert.FromBase64String(base64);
+
+                    var webRoot = _env.WebRootPath ?? Path.Combine(AppContext.BaseDirectory, "wwwroot");
+                    var folder = Path.Combine(webRoot, "uploads", "fotos");
+                    Directory.CreateDirectory(folder);
+
+                    var fullPath = Path.Combine(folder, fileSafeName);
+                    await System.IO.File.WriteAllBytesAsync(fullPath, bytes);
+
+                    // 2.4 Path relativo para servir estático
+                    fotoPathRel = $"/uploads/fotos/{fileSafeName}";
+
+                    // 2.5 Actualizar i_cab_prev_inve.pdf_normal_cpi con el path
+                    const string SQL_UPD_PDF = @"
+        UPDATE dbo.i_cab_prev_inve
+        SET pdf_normal_cpi = '\\10.39.10.30\EPPs\wwwroot' + REPLACE(@ruta, '/', '\')
+        WHERE codigo_cpi = @codigo_cpi;";
+
+                    await using (var cmdPdf = new SqlCommand(SQL_UPD_PDF, cn, (SqlTransaction)tx))
+                    {
+                        cmdPdf.Parameters.Add(new SqlParameter("@ruta", SqlDbType.NVarChar, 500) { Value = (object)fotoPathRel ?? DBNull.Value });
+                        cmdPdf.Parameters.Add(new SqlParameter("@codigo_cpi", SqlDbType.NVarChar, 50) { Value = req.CodigoCpi! });
+                        await cmdPdf.ExecuteNonQueryAsync();
+                    }
+                }
+
                 await tx.CommitAsync();
+
+                // Guardar foto (si llegó)
+                try
+                {
+                    if (!string.IsNullOrWhiteSpace(req.FotoBase64))
+                    {
+                        // req.FotoBase64 puede venir como "data:image/jpeg;base64,AAAA..."
+                        var base64 = req.FotoBase64!;
+                        var commaIdx = base64.IndexOf(',');
+                        if (commaIdx > 0) base64 = base64[(commaIdx + 1)..];
+
+                        var bytes = Convert.FromBase64String(base64);
+                        var folder = Path.Combine(_env.WebRootPath ?? "wwwroot", "uploads", "fotos");
+                        Directory.CreateDirectory(folder);
+
+                        var fileName = $"foto_{(req.CodigoCpi ?? "NA")}_{DateTime.UtcNow:yyyyMMddHHmmss}.jpg";
+                        var fullPath = Path.Combine(folder, fileName);
+                        await System.IO.File.WriteAllBytesAsync(fullPath, bytes);
+
+                        fotoPathRel = $"/uploads/fotos/{fileName}";
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error guardando foto");
+                }
 
                 // >>> Un único return con el resumen (el front muestra un solo alert)
                 return Ok(new
@@ -328,7 +431,8 @@ namespace EPPs.Controllers
                     inserted, 
                     deleted,
                     headersUpdated,
-                    estado = estadoEpi
+                    estado = estadoEpi,
+                    foto = fotoPathRel
                 });
             }
             catch (Exception ex)
