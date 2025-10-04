@@ -6,5 +6,8 @@
         public string? CodigoArticulo { get; set; }
         public string Articulo { get; set; } 
         public decimal Cantidad { get; set; }
+        public string? NombreCentroCosto { get; set; }
+        public string? CodigoCentroCosto { get; set; } // d.codigo_efc
+
     }
 }

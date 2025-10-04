@@ -15,6 +15,7 @@
     {
         public string Codigo { get; set; } = "";           // codigo_dpv
         public string? CodigoArticulo { get; set; }        // codigo_art (nullable si permites sin artículo)
-        public decimal Cantidad { get; set; }              // cantidad_dpv
+        public decimal Cantidad { get; set; }
+        public string? CodigoCentroCosto { get; set; }// cantidad_dpv
     }
 }

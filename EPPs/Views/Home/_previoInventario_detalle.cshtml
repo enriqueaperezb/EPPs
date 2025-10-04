@@ -13,8 +13,9 @@
         <tr>
             <th>Código</th>
             <th>Artículo</th>
+            <th>Centro de Costo</th>
             <th>Cantidad</th>
-            <th>Entregado</th>
+            <th>Sel</th>
         </tr>
     </thead>
     <tbody>
@@ -43,13 +44,30 @@
                         </select>
                     </td>
 
+                    <!-- NUEVO: Centro de Costo -->
+                    <td>
+                        <select class="form-select form-select-sm centrocosto-select" data-codigo="@d.Codigo">
+                            @foreach (var c in Model.CentrosCosto)
+                            {
+                                if (c.Value == d.CodigoCentroCosto)
+                                {
+                                    <option value="@c.Value" selected>@c.Text</option>
+                                }
+                                else
+                                {
+                                    <option value="@c.Value">@c.Text</option>
+                                }
+                            }
+                        </select>
+                    </td>
+
                     <!-- Cantidad editable -->
                     <td style="width:70px;">
                         <input type="number"
                                step="1"
                                class="form-control form-control-sm cantidad-input text-end"
                                data-codigo="@d.Codigo"
-                               value="@(d.Cantidad.ToString("F2", System.Globalization.CultureInfo.InvariantCulture))" />
+                               value="@(d.Cantidad.ToString("F0", System.Globalization.CultureInfo.InvariantCulture))" />
                     </td>
 
                     <td class="text-center">

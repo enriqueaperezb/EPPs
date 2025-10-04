@@ -4,8 +4,6 @@
     var codigo_emp = ViewBag.Codigo_emp as string ?? "";
 }
 
-<h5 class="mb-3">Entrega de Equipos de Protección Personal</h5>
-
 <style>
     /* Paneles apilados con scroll vertical y encabezado fijo */
     .panel {
@@ -39,6 +37,19 @@
         top: 0;
         background: #f8f9fa; /* o #fff si prefieres */
         z-index: 2;
+    }
+</style>
+
+<style>
+    /* Texto más pequeño solo en la tabla del historial */
+    #historial-panel table {
+        font-size: 0.85rem; /* ajusta: 0.9rem o 0.8rem según prefieras */
+    }
+    /* Oculta la columna del código en la tabla Detalle */
+    #detalle-panel table th:first-child,
+    #detalle-panel table td:first-child {
+        /*display: none;*/
+        font-size: xx-small;
     }
 </style>
 
@@ -80,7 +91,8 @@
     <div class="col-lg-8">
 
         <!-- Empresa -->
-        <div class="d-flex align-items-center mb-2" style="max-width:480px;">
+        <div class="d-flex align-items-center mb-2">
+            <h5 class="mb-3" style="width: 1400px;">Entrega de Equipos de Protección Personal</h5>
             <label for="empresaSelect" class="me-2 fw-bold">Empresa:</label>
             <select id="empresaSelect" class="form-select">
                 <option value="">Seleccione la empresa...</option>
@@ -114,9 +126,9 @@
             </div>
         </form>
 
-        <div id="maestro-panel" class="panel">
-            <h5 class="mb-2">Previo Inventario - Consumos</h5>
-            <div class="panel-scroll" style="height:25vh; overflow-y:auto;">
+        <div id="maestro-panel" class="panel" style="height:17vh;">
+            <!-- <h5 class="mb-2">Previo Inventario - Consumos</h5> -->
+            <div class="panel-scroll" style="height:15vh; overflow-y:auto;">
                 <!-- tabla maestro -->
                 <table class="table table-sm table-hover">
                     <thead class="table-light sticky-top">
@@ -149,7 +161,7 @@
     </div>
 
     <!-- Columna derecha: Webcam -->
-    <div class="col-lg-4">
+    <div class="col-lg-3">
         <div id="webcam-box">
             <div class="d-flex justify-content-between align-items-center mb-1">
                 <!-- <strong>Captura</strong> -->
@@ -161,12 +173,10 @@
     </div>
 </div>
 
-
-
 <!-- Fila: Detalle (izq) + Historial (der) -->
 <div class="row g-3 mt-3">
     <!-- Columna izquierda: TABLA 2 (Detalle) -->
-    <div class="col-lg-7">
+    <div class="col-lg-8">
         <div id="detalle-panel" class="panel">
             <h5 class="mb-2">Detalle de artículos a entregar</h5>
             <div class="panel-scroll" style="height:40vh; overflow-y:auto;">
@@ -187,10 +197,10 @@
     </div>
 
     <!-- Columna derecha: TABLA 3 (Historial) -->
-    <div class="col-lg-5">
-        <div id="historial-panel" class="panel">
+    <div class="col-lg-4">
+        <div id="historial-panel" class="panel" style="height:40vh;">
             <h5 class="mb-2">Historial (últimos 12 meses)</h5>
-            <div class="panel-scroll" style="height:40vh; overflow-y:auto;">
+            <div class="panel-scroll" style="height:34vh; overflow-y:auto;">
                 <table class="table table-sm table-striped">
                     <thead class="table-light sticky-top">
                         <tr>
@@ -389,6 +399,9 @@
                 const firstSelect = cont.querySelector('select.articulo-select');
                 const optionsHtml = firstSelect ? firstSelect.innerHTML : '<option value="">-- Seleccione --</option>';
 
+                const firstCC = cont.querySelector('select.centrocosto-select');
+                const optionsCcHtml = firstCC ? firstCC.innerHTML : '<option value="">-- Seleccione --</option>';
+
                 const tempId = `new-${++newCounter}`; // 👈 ID temporal único por línea nueva
 
                 const tr = document.createElement('tr');
@@ -398,6 +411,12 @@
                     <select class="form-select form-select-sm articulo-select" data-codigo="${tempId}">
                     ${optionsHtml}
                     </select>
+                    <!-- Centro de Costo (NUEVO en línea nueva) -->
+                    <td>
+                      <select class="form-select form-select-sm centrocosto-select" data-codigo="${tempId}">
+                        ${optionsCcHtml}
+                      </select>
+                    </td>
                     </td>
                     <td style="width:130px;">
                     <input type="number" step="1" class="form-control form-control-sm cantidad-input text-end"
@@ -492,15 +511,16 @@
                     if (!chk.checked) return;
 
                     const codigoArticulo = sel.value;
+                    const codigoCentroCosto = tr.querySelector('.centrocosto-select')?.value || '';
                     const cantidad = parseFloat((qty.value || '').replace(',', '.'));
                     if (!codigoArticulo || isNaN(cantidad) || cantidad <= 0) return;
 
                     if (isNew) {
                     // Nueva línea → no enviamos 'Codigo'
-                    nuevos.push({ CodigoArticulo: codigoArticulo, Cantidad: cantidad });
+                          nuevos.push({ CodigoArticulo: codigoArticulo, Cantidad: cantidad, CodigoCentroCosto: codigoCentroCosto });
                     } else {
                     // Existente → UPDATE
-                    items.push({ Codigo: codigo, CodigoArticulo: codigoArticulo, Cantidad: cantidad });
+                          items.push({ Codigo: codigo, CodigoArticulo: codigoArticulo, Cantidad: cantidad, CodigoCentroCosto: codigoCentroCosto });
                     }
                     });
 
@@ -559,6 +579,29 @@
                 return w.normalize ? w.normalize('NFD').replace(/[\u0300-\u036f]/g,'') : w; // sin tildes
             }
 
+            // Cambio de artículo en la tabla 2 -> recargar tabla 3
+            detalleCont.addEventListener('change', (e) => {
+              const sel = e.target.closest('select.articulo-select');
+              if (!sel) return;
+
+              // resaltar la fila donde se cambió el artículo
+              const tr = sel.closest('tr.fila-detalle');
+              if (tr) {
+                detalleCont.querySelectorAll('tr.fila-detalle.table-active')
+                           .forEach(r => r.classList.remove('table-active'));
+                tr.classList.add('table-active');
+              }
+
+              // obtener la primera palabra del nombre del artículo seleccionado
+              const opt = sel.options[sel.selectedIndex];
+              const nombreArticulo = opt ? opt.text : '';
+              const palabra = firstWord(nombreArticulo);
+
+              // cargar historial con el empleado actual
+              const codigoEmp = (document.getElementById('codigoEmpActual')?.value || '').trim();
+              cargarHistorial(codigoEmp, palabra);
+            });
+        
             function renderHistorial(rows) {
                 tbHist.innerHTML = '';
                 if (!rows || rows.length === 0) {
@@ -571,8 +614,7 @@
                     tr.innerHTML = `
                     <td>${r.fecha}</td>
                     <td>${r.nombre}</td>
-                    <td style="text-align:right;">${Number(r.cantidad).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}</td>
-                    `;
+                    <td style="text-align:right;">${Math.round(Number(r.cantidad)).toLocaleString()}</td>                            `;
                     frag.appendChild(tr);
                 });
                 tbHist.appendChild(frag);

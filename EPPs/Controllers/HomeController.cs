@@ -1,5 +1,6 @@
 ﻿using EPPs.Models;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.Data.SqlClient;
 using System.Data;
@@ -15,11 +16,17 @@ namespace EPPs.Controllers
         private readonly ILogger<HomeController> _logger;
         private readonly IWebHostEnvironment _env; // <-- NUEVO
 
+        private string? _codigo_nef;          //Nivel del centro de costo
+        private string? _codigo_epi_aprobado; //Estado previo inventario
+        private string? _codigo_epi_anulado;  //Estado previo inventario
+        private string? _codigo_usu_aprueba;  //Usuario
+        private string? _codigo_tti_consumo;  //Tipo de comprobante de inventario
+
         public HomeController(IConfiguration config, ILogger<HomeController> logger, IWebHostEnvironment env)
         {
             _config = config;
             _logger = logger;
-            _env = env; // <-- NUEVO
+            _env = env; // <-- NUEVO            
         }
         public IActionResult Index()
         {
@@ -35,6 +42,11 @@ namespace EPPs.Controllers
         public IActionResult Error()
         {
             return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
+        }
+        public override void OnActionExecuting(ActionExecutingContext context)
+        {
+            SetVarsEmpresaFromCookie(); // ← lee cookie y setea _empresaActual, _connName, etc.
+            base.OnActionExecuting(context);
         }
 
         [HttpGet]
@@ -61,9 +73,9 @@ namespace EPPs.Controllers
                     dbo.i_cab_prev_inve
                 WHERE 
                     (dbo.i_cab_prev_inve.codigo_emp LIKE @codigo_emp) AND
-                    (dbo.i_cab_prev_inve.codigo_epi not like '00103') AND
+                    (dbo.i_cab_prev_inve.codigo_epi not like @codigo_epi) AND
                     (dbo.i_cab_prev_inve.observacion_cpi LIKE 'EPP%') 
-                    AND dbo.i_cab_prev_inve.codigo_tti = '001029'
+                    AND dbo.i_cab_prev_inve.codigo_tti LIKE @codigo_tti
                 ORDER BY 
                     dbo.i_cab_prev_inve.codigo_cpi DESC;";
 
@@ -73,7 +85,8 @@ namespace EPPs.Controllers
             await using (var cmd = new SqlCommand(sql, conn))
             {
                 cmd.Parameters.Add(new SqlParameter("@codigo_emp", SqlDbType.NVarChar, 200) { Value = (object?)codigo_emp ?? DBNull.Value });
-
+                cmd.Parameters.Add(new SqlParameter("@codigo_epi", SqlDbType.NVarChar, 200) { Value = (object?)_codigo_epi_aprobado ?? DBNull.Value });
+                cmd.Parameters.Add(new SqlParameter("@codigo_tti", SqlDbType.NVarChar, 200) { Value = (object?)_codigo_tti_consumo ?? DBNull.Value });
                 await using var rdr = await cmd.ExecuteReaderAsync();
                 while (await rdr.ReadAsync())
                 {
@@ -127,19 +140,23 @@ namespace EPPs.Controllers
                     dbo.i_det_prev_inve.codigo_dpv codigo,
                     dbo.c_articulo.codigo_art codigo_art,
                     dbo.c_articulo.nombre_art articulo,
-                    dbo.i_det_prev_inve.cantidad_dpv cantidad 
+                    dbo.i_det_prev_inve.cantidad_dpv cantidad,
+                    dbo.i_det_prev_inve.codigo_efc
                 FROM 
                     dbo.i_det_prev_inve INNER JOIN
-                    dbo.c_articulo ON dbo.i_det_prev_inve.codigo_art = dbo.c_articulo.codigo_art 
-                WHERE dbo.i_det_prev_inve.codigo_cpi = @codigo_cpi
-                ORDER BY dbo.c_articulo.nombre_art;";
+                    dbo.c_articulo ON dbo.i_det_prev_inve.codigo_art = dbo.c_articulo.codigo_art
+                WHERE 
+                    dbo.i_det_prev_inve.codigo_cpi = @codigo_cpi
+                ORDER BY 
+                    dbo.c_articulo.nombre_art;";
 
             const string sqlArticulos = @"
                 SELECT 
                     codigo_art, nombre_art
                 FROM 
                     dbo.c_articulo
-                ORDER BY nombre_art;";
+                ORDER BY 
+                    nombre_art;";
 
             await using var conn = new SqlConnection(connStr);
             await conn.OpenAsync();
@@ -156,7 +173,8 @@ namespace EPPs.Controllers
                         Codigo = rdr.GetString(0),
                         CodigoArticulo = rdr.GetString(1),   // <-- Nuevo, se llena el código
                         Articulo = rdr.GetString(2),
-                        Cantidad = rdr.GetDecimal(3)
+                        Cantidad = rdr.GetDecimal(3),
+                        CodigoCentroCosto = rdr.IsDBNull(4) ? null : rdr.GetString(4)
                     });
                 }
             }
@@ -175,10 +193,27 @@ namespace EPPs.Controllers
                 }
             }
 
+            const string sqlEfc = @"SELECT codigo_efc, nombre_efc FROM dbo.d_est_fisi_cost WHERE codigo_nef = '00102' ORDER BY nombre_efc;";
+            var centros = new List<SelectListItem>();
+
+            await using (var cmd3 = new SqlCommand(sqlEfc, conn))
+            //cmd3.Parameters.Add(new SqlParameter("@codigo_nef", SqlDbType.NVarChar, 200) { Value = (object?)_codigo_nef ?? DBNull.Value });
+            await using (var r3 = await cmd3.ExecuteReaderAsync())
+            {
+                while (await r3.ReadAsync())
+                {
+                    centros.Add(new SelectListItem
+                    {
+                        Value = r3.GetString(0),
+                        Text = r3.GetString(1)
+                    });
+                }
+            }
             var vm = new previoInventario_detalleListado
             {
                 Detalles = detalles,
-                Articulos = articulos
+                Articulos = articulos,
+                CentrosCosto = centros
             };
 
             return PartialView("_previoInventario_detalle", vm);
@@ -211,15 +246,16 @@ namespace EPPs.Controllers
                 SET 
                     codigo_art = @codigo_art,
                     cantidad_dpv = @cantidad,
-                    canti_pedid_dpv = @cantidad
+                    canti_pedid_dpv = @cantidad,
+                    codigo_efc = @codigo_efc
                 WHERE 
                     codigo_dpv = @codigo_dpv;";
 
             const string SQL_INS_DET = @"
                 INSERT INTO 
-                    dbo.i_det_prev_inve (codigo_cpi, codigo_dpv, codigo_art, cantidad_dpv, canti_pedid_dpv, precio_dpv)
+                    dbo.i_det_prev_inve (codigo_cpi, codigo_dpv, codigo_art, cantidad_dpv, canti_pedid_dpv, precio_dpv, codigo_efc)
                 VALUES 
-                    (@codigo_cpi, (SELECT '00'+CONVERT(VARCHAR,MAX_NUM_BLO+1) FROM S_BLOQUEO WHERE TABLA_BLO LIKE 'i_det_prev_inve'), @codigo_art, @cantidad, @cantidad, 0);
+                    (@codigo_cpi, (SELECT '00'+CONVERT(VARCHAR,MAX_NUM_BLO+1) FROM S_BLOQUEO WHERE TABLA_BLO LIKE 'i_det_prev_inve'), @codigo_art, @cantidad, @cantidad, 0, @codigo_efc);
 
                 UPDATE S_BLOQUEO SET MAX_NUM_BLO=MAX_NUM_BLO+1 FROM S_BLOQUEO WHERE TABLA_BLO LIKE 'i_det_prev_inve';";
 
@@ -281,8 +317,9 @@ namespace EPPs.Controllers
                         var pCant = cmdIns.Parameters.Add("@cantidad", SqlDbType.Decimal);
                         pCant.Precision = 22; pCant.Scale = 15;
                         pCant.Value = n.Cantidad;
+                        cmdIns.Parameters.Add(new SqlParameter("@codigo_efc", SqlDbType.NVarChar, 50) { Value = (object?)n.CodigoCentroCosto ?? DBNull.Value });
 
-                        inserted += await cmdIns.ExecuteNonQueryAsync() - 1 ;
+                        inserted += await cmdIns.ExecuteNonQueryAsync() - 1;
                     }
                 }
 
@@ -297,7 +334,8 @@ namespace EPPs.Controllers
                     pCant.Value = it.Cantidad;
 
                     cmdUp.Parameters.Add(new SqlParameter("@codigo_dpv", SqlDbType.NVarChar, 50) { Value = it.Codigo });
-
+                    cmdUp.Parameters.Add(new SqlParameter("@codigo_efc", SqlDbType.NVarChar, 50) { Value = (object?)it.CodigoCentroCosto ?? DBNull.Value });
+                    
                     updated += await cmdUp.ExecuteNonQueryAsync();
                 }
 
@@ -353,10 +391,13 @@ namespace EPPs.Controllers
                     // 2.1 Obtener nombre del empleado por codigo_cpi
                     string nombreEmpleado = "empleado";
                     const string SQL_EMPLEADO = @"
-        SELECT TOP (1) emp.apellido_emp + ' ' + emp.nombre_emp
-        FROM dbo.i_cab_prev_inve cpi
-        INNER JOIN dbo.r_empleado emp ON emp.codigo_emp = cpi.codigo_emp
-        WHERE cpi.codigo_cpi = @codigo_cpi;";
+                        SELECT TOP (1) 
+                            emp.apellido_emp + ' ' + emp.nombre_emp
+                        FROM 
+                            dbo.i_cab_prev_inve cpi
+                            INNER JOIN dbo.r_empleado emp ON emp.codigo_emp = cpi.codigo_emp
+                        WHERE 
+                            cpi.codigo_cpi = @codigo_cpi;";
 
                     await using (var cmdEmp = new SqlCommand(SQL_EMPLEADO, cn, (SqlTransaction)tx))
                     {
@@ -387,9 +428,12 @@ namespace EPPs.Controllers
 
                     // 2.5 Actualizar i_cab_prev_inve.pdf_normal_cpi con el path
                     const string SQL_UPD_PDF = @"
-        UPDATE dbo.i_cab_prev_inve
-        SET pdf_normal_cpi = '\\10.39.10.30\EPPs\wwwroot' + REPLACE(@ruta, '/', '\')
-        WHERE codigo_cpi = @codigo_cpi;";
+                        UPDATE 
+                            dbo.i_cab_prev_inve
+                        SET 
+                            pdf_normal_cpi = '\\10.39.10.30\EPPs\wwwroot' + REPLACE(@ruta, '/', '\')
+                        WHERE 
+                            codigo_cpi = @codigo_cpi;";
 
                     await using (var cmdPdf = new SqlCommand(SQL_UPD_PDF, cn, (SqlTransaction)tx))
                     {
@@ -431,7 +475,7 @@ namespace EPPs.Controllers
                 return Ok(new
                 {
                     updated,
-                    inserted, 
+                    inserted,
                     deleted,
                     headersUpdated,
                     estado = estadoEpi,
@@ -456,20 +500,23 @@ namespace EPPs.Controllers
             var cs = _config.GetConnectionString("DefaultConnection");
             // Filtrar por los últimos 12 meses y artículos cuyo nombre empiece por "q"
             const string sql = @"
-        SELECT TOP (200)
-               c.fecha_elabo_cpi,
-               a.nombre_art,
-               d.cantidad_dpv
-        FROM dbo.i_det_prev_inve AS d
-        INNER JOIN dbo.i_cab_prev_inve AS c ON c.codigo_cpi = d.codigo_cpi
-        INNER JOIN dbo.c_articulo AS a ON a.codigo_art = d.codigo_art
-        WHERE c.codigo_epi = '00103'
-          AND c.observacion_cpi LIKE 'EPP%'
-          AND c.codigo_tti = '001029'
-          AND c.codigo_emp = @emp
-          AND a.nombre_art LIKE @pat
-          AND c.fecha_elabo_cpi >= DATEADD(MONTH, -12, GETDATE())
-        ORDER BY c.fecha_elabo_cpi DESC;";
+                SELECT TOP (200)
+                    c.fecha_elabo_cpi,
+                    a.nombre_art,
+                    d.cantidad_dpv
+                FROM 
+                    dbo.i_det_prev_inve AS d
+                    INNER JOIN dbo.i_cab_prev_inve AS c ON c.codigo_cpi = d.codigo_cpi
+                    INNER JOIN dbo.c_articulo AS a ON a.codigo_art = d.codigo_art 
+                    --INNER JOIN dbo.i_det_comp_inve as i ON i.codigo_dpv = d.codigo_dpv -- Solo articulos del previo entregados ojo
+                WHERE c.codigo_epi = @codigo_epi
+                    AND c.observacion_cpi LIKE 'EPP%'
+                    AND c.codigo_tti = @codigo_tti
+                    AND c.codigo_emp = @emp
+                    AND a.nombre_art LIKE @pat
+                    AND c.fecha_elabo_cpi >= DATEADD(MONTH, -12, GETDATE())
+                ORDER BY 
+                    c.fecha_elabo_cpi DESC;";
 
             var list = new List<object>();
 
@@ -478,6 +525,8 @@ namespace EPPs.Controllers
             await using var cmd = new SqlCommand(sql, cn);
             cmd.Parameters.Add(new SqlParameter("@emp", SqlDbType.NVarChar, 50) { Value = codigoEmp });
             cmd.Parameters.Add(new SqlParameter("@pat", SqlDbType.NVarChar, 200) { Value = q + "%" });
+            cmd.Parameters.Add(new SqlParameter("@codigo_epi", SqlDbType.NVarChar, 200) { Value = (object?)_codigo_epi_aprobado ?? DBNull.Value });
+            cmd.Parameters.Add(new SqlParameter("@codigo_tti", SqlDbType.NVarChar, 200) { Value = (object?)_codigo_tti_consumo ?? DBNull.Value });
 
             await using var rdr = await cmd.ExecuteReaderAsync();
             while (await rdr.ReadAsync())
@@ -489,6 +538,58 @@ namespace EPPs.Controllers
             }
 
             return Json(list);
+        }
+
+        private void SetVarsEmpresaFromCookie()
+        {
+            var emp = Request?.Cookies["empresa"] ?? "";
+
+            // Mapea SIEMPRE a una lista blanca (nunca uses el cookie directo en SQL)
+            switch (emp)
+            {
+                case "Bellarosa":
+                    _codigo_nef = "00102";          //Nivel del centro de costo
+                    _codigo_epi_aprobado = "00103"; //Estado previo inventario
+                    _codigo_epi_anulado = "00105";  //Estado previo inventario
+                    _codigo_usu_aprueba = "004";  //Usuario
+                    _codigo_tti_consumo = "001029";  //Tipo de comprobante de inventario
+                    break;
+                case "Qualisa":
+                    _codigo_nef = "00102";          //Nivel del centro de costo
+                    _codigo_epi_aprobado = "00103"; //Estado previo inventario
+                    _codigo_epi_anulado = "00105";  //Estado previo inventario
+                    _codigo_usu_aprueba = "004";  //Usuario
+                    _codigo_tti_consumo = "001029";  //Tipo de comprobante de inventario
+                    break;
+                case "Royal Flowers":
+                    _codigo_nef = "00102";          //Nivel del centro de costo
+                    _codigo_epi_aprobado = "00103"; //Estado previo inventario
+                    _codigo_epi_anulado = "00105";  //Estado previo inventario
+                    _codigo_usu_aprueba = "004";  //Usuario
+                    _codigo_tti_consumo = "001029";  //Tipo de comprobante de inventario
+                    break;
+                case "Sisapamba":
+                    _codigo_nef = "00102";          //Nivel del centro de costo
+                    _codigo_epi_aprobado = "00103"; //Estado previo inventario
+                    _codigo_epi_anulado = "00105";  //Estado previo inventario
+                    _codigo_usu_aprueba = "004";  //Usuario
+                    _codigo_tti_consumo = "001029";  //Tipo de comprobante de inventario
+                    break;
+                case "Continental Logistics":
+                    _codigo_nef = "00102";          //Nivel del centro de costo
+                    _codigo_epi_aprobado = "00103"; //Estado previo inventario
+                    _codigo_epi_anulado = "00105";  //Estado previo inventario
+                    _codigo_usu_aprueba = "004";  //Usuario
+                    _codigo_tti_consumo = "001029";  //Tipo de comprobante de inventario
+                    break;
+                default:
+                    _codigo_nef = "";          //Nivel del centro de costo
+                    _codigo_epi_aprobado = ""; //Estado previo inventario
+                    _codigo_epi_anulado = "";  //Estado previo inventario
+                    _codigo_usu_aprueba = "";  //Usuario
+                    _codigo_tti_consumo = "";  //Tipo de comprobante de inventario
+                    break;
+            }
         }
 
     }
