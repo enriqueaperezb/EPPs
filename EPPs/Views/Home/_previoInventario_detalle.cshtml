@@ -11,10 +11,10 @@
 <table class="table table-sm table-bordered table-striped align-middle">
     <thead>
         <tr>
-            <th>Código (detalle)</th>
+            <th>Código</th>
             <th>Artículo</th>
             <th>Cantidad</th>
-            <th>Seleccionar</th>
+            <th>Entregado</th>
         </tr>
     </thead>
     <tbody>
@@ -22,7 +22,7 @@
         {
             foreach (var d in Model.Detalles)
             {
-                <tr>
+                <tr class="fila-detalle" data-codigo="@d.Codigo">
                     <td>@d.Codigo</td>
 
                     <!-- Combo de artículos: muestra nombre, envía código -->
@@ -44,7 +44,7 @@
                     </td>
 
                     <!-- Cantidad editable -->
-                    <td style="width:130px;">
+                    <td style="width:70px;">
                         <input type="number"
                                step="1"
                                class="form-control form-control-sm cantidad-input text-end"

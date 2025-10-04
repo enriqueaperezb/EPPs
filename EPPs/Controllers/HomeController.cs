@@ -61,8 +61,9 @@ namespace EPPs.Controllers
                     dbo.i_cab_prev_inve
                 WHERE 
                     (dbo.i_cab_prev_inve.codigo_emp LIKE @codigo_emp) AND
-                    (dbo.i_cab_prev_inve.codigo_epi = '00103') AND
+                    (dbo.i_cab_prev_inve.codigo_epi not like '00103') AND
                     (dbo.i_cab_prev_inve.observacion_cpi LIKE 'EPP%') 
+                    AND dbo.i_cab_prev_inve.codigo_tti = '001029'
                 ORDER BY 
                     dbo.i_cab_prev_inve.codigo_cpi DESC;";
 
@@ -126,7 +127,7 @@ namespace EPPs.Controllers
                     dbo.i_det_prev_inve.codigo_dpv codigo,
                     dbo.c_articulo.codigo_art codigo_art,
                     dbo.c_articulo.nombre_art articulo,
-                    dbo.i_det_prev_inve.cantidad_dpv cantidad -- el ultimo consumo de ese empleado fecha y cantidad ojo
+                    dbo.i_det_prev_inve.cantidad_dpv cantidad 
                 FROM 
                     dbo.i_det_prev_inve INNER JOIN
                     dbo.c_articulo ON dbo.i_det_prev_inve.codigo_art = dbo.c_articulo.codigo_art 
@@ -443,6 +444,51 @@ namespace EPPs.Controllers
                 _logger.LogError(ex, "Error en GuardarPrevioDetalle");
                 return StatusCode(500, "Error al guardar los cambios.");
             }
+        }
+
+
+        [HttpGet]
+        public async Task<IActionResult> HistorialArticulo(string codigoEmp, string q)
+        {
+            if (string.IsNullOrWhiteSpace(codigoEmp) || string.IsNullOrWhiteSpace(q))
+                return Json(Array.Empty<object>());
+
+            var cs = _config.GetConnectionString("DefaultConnection");
+            // Filtrar por los últimos 12 meses y artículos cuyo nombre empiece por "q"
+            const string sql = @"
+        SELECT TOP (200)
+               c.fecha_elabo_cpi,
+               a.nombre_art,
+               d.cantidad_dpv
+        FROM dbo.i_det_prev_inve AS d
+        INNER JOIN dbo.i_cab_prev_inve AS c ON c.codigo_cpi = d.codigo_cpi
+        INNER JOIN dbo.c_articulo AS a ON a.codigo_art = d.codigo_art
+        WHERE c.codigo_epi = '00103'
+          AND c.observacion_cpi LIKE 'EPP%'
+          AND c.codigo_tti = '001029'
+          AND c.codigo_emp = @emp
+          AND a.nombre_art LIKE @pat
+          AND c.fecha_elabo_cpi >= DATEADD(MONTH, -12, GETDATE())
+        ORDER BY c.fecha_elabo_cpi DESC;";
+
+            var list = new List<object>();
+
+            await using var cn = new SqlConnection(cs);
+            await cn.OpenAsync();
+            await using var cmd = new SqlCommand(sql, cn);
+            cmd.Parameters.Add(new SqlParameter("@emp", SqlDbType.NVarChar, 50) { Value = codigoEmp });
+            cmd.Parameters.Add(new SqlParameter("@pat", SqlDbType.NVarChar, 200) { Value = q + "%" });
+
+            await using var rdr = await cmd.ExecuteReaderAsync();
+            while (await rdr.ReadAsync())
+            {
+                var fecha = rdr.GetDateTime(0).ToString("yyyy-MM-dd");
+                var nombre = rdr.GetString(1);
+                var cantidad = rdr.GetDecimal(2);
+                list.Add(new { fecha, nombre, cantidad });
+            }
+
+            return Json(list);
         }
 
     }
