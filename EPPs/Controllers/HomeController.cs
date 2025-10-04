@@ -4,7 +4,6 @@ using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.Data.SqlClient;
 using System.Data;
-using System.Data;
 using System.Diagnostics;
 using System.Reflection;
 
@@ -14,19 +13,20 @@ namespace EPPs.Controllers
     {
         private readonly IConfiguration _config;
         private readonly ILogger<HomeController> _logger;
-        private readonly IWebHostEnvironment _env; // <-- NUEVO
+        private readonly IWebHostEnvironment _env; 
 
-        private string? _codigo_nef;          //Nivel del centro de costo
-        private string? _codigo_epi_aprobado; //Estado previo inventario
-        private string? _codigo_epi_anulado;  //Estado previo inventario
-        private string? _codigo_usu_aprueba;  //Usuario
-        private string? _codigo_tti_consumo;  //Tipo de comprobante de inventario
+        private string? _connection;            //Nombre de la conexión a usar
+        private string? _codigo_nef;            //Nivel del centro de costo
+        private string? _codigo_epi_aprobado;   //Estado previo inventario
+        private string? _codigo_epi_anulado;    //Estado previo inventario
+        private string? _codigo_usu_aprueba;    //Usuario
+        private string? _codigo_tti_consumo;    //Tipo de comprobante de inventario
 
         public HomeController(IConfiguration config, ILogger<HomeController> logger, IWebHostEnvironment env)
         {
             _config = config;
             _logger = logger;
-            _env = env; // <-- NUEVO            
+            _env = env;             
         }
         public IActionResult Index()
         {
@@ -45,7 +45,7 @@ namespace EPPs.Controllers
         }
         public override void OnActionExecuting(ActionExecutingContext context)
         {
-            SetVarsEmpresaFromCookie(); // ← lee cookie y setea _empresaActual, _connName, etc.
+            SetVarsEmpresaFromCookie(); // ← lee cookie y setea variables de códigos Venture
             base.OnActionExecuting(context);
         }
 
@@ -61,9 +61,9 @@ namespace EPPs.Controllers
             }
 
             var resultados = new List<previoInventario>();
-            var connStr = _config.GetConnectionString("DefaultConnection");
+            var connStr = _config.GetConnectionString(_connection);
 
-            // EJEMPLO de consulta: ajusta nombres de tabla/columnas a tu base
+            // Listamos los previos inventarios no aprobados, EPP, tipo consumo, del empleado 
             const string sql = @"
                 SELECT
                     dbo.i_cab_prev_inve.codigo_cpi codigo,
@@ -99,7 +99,7 @@ namespace EPPs.Controllers
                 }
             }
 
-            // 2) Nombre del empleado (para mostrar bajo el input)
+            //Nombre del empleado (para mostrar al buscar)
             string nombreEmpleado = "";
             if (!string.IsNullOrWhiteSpace(codigo_emp))
             {
@@ -133,7 +133,7 @@ namespace EPPs.Controllers
         {
             var detalles = new List<previoInventario_detalle>();
             var articulos = new List<SelectListItem>();
-            var connStr = _config.GetConnectionString("DefaultConnection");
+            var connStr = _config.GetConnectionString(_connection);
 
             const string sqlDetalles = @"
                 SELECT 
@@ -254,7 +254,7 @@ namespace EPPs.Controllers
         {
             if (req == null) return BadRequest("Petición vacía.");
 
-            var connStr = _config.GetConnectionString("DefaultConnection");
+            var connStr = _config.GetConnectionString(_connection);
 
             const string SQL_UPD_DET = @"
                 UPDATE 
@@ -516,7 +516,7 @@ namespace EPPs.Controllers
             if (string.IsNullOrWhiteSpace(codigoEmp) || string.IsNullOrWhiteSpace(q))
                 return Json(Array.Empty<object>());
 
-            var cs = _config.GetConnectionString("DefaultConnection");
+            var cs = _config.GetConnectionString(_connection);
             // Filtrar por los últimos 12 meses y artículos cuyo nombre empiece por "q"
             const string sql = @"
                 SELECT TOP (200)
@@ -567,27 +567,31 @@ namespace EPPs.Controllers
             switch (emp)
             {
                 case "Bellarosa":
+                    _connection = "bellarosaConnection";
                     _codigo_nef = "00102";          //Nivel del centro de costo
                     _codigo_epi_aprobado = "00103"; //Estado previo inventario
                     _codigo_epi_anulado = "00105";  //Estado previo inventario
-                    _codigo_usu_aprueba = "004";  //Usuario
-                    _codigo_tti_consumo = "001029";  //Tipo de comprobante de inventario
+                    _codigo_usu_aprueba = "017";  //Usuario
+                    _codigo_tti_consumo = "001005";  //Tipo de comprobante de inventario
                     break;
                 case "Qualisa":
+                    _connection = "qualisaConnection";
                     _codigo_nef = "00102";          //Nivel del centro de costo
                     _codigo_epi_aprobado = "00103"; //Estado previo inventario
                     _codigo_epi_anulado = "00105";  //Estado previo inventario
-                    _codigo_usu_aprueba = "004";  //Usuario
-                    _codigo_tti_consumo = "001029";  //Tipo de comprobante de inventario
+                    _codigo_usu_aprueba = "138";  //Usuario
+                    _codigo_tti_consumo = "001012";  //Tipo de comprobante de inventario
                     break;
                 case "Royal Flowers":
+                    _connection = "royalFlowersConnection";
                     _codigo_nef = "00102";          //Nivel del centro de costo
                     _codigo_epi_aprobado = "00103"; //Estado previo inventario
-                    _codigo_epi_anulado = "00105";  //Estado previo inventario
-                    _codigo_usu_aprueba = "004";  //Usuario
-                    _codigo_tti_consumo = "001029";  //Tipo de comprobante de inventario
+                    _codigo_epi_anulado = "00104";  //Estado previo inventario
+                    _codigo_usu_aprueba = "465";  //Usuario
+                    _codigo_tti_consumo = "001012";  //Tipo de comprobante de inventario
                     break;
                 case "Sisapamba":
+                    _connection = "sisapambaConnection";
                     _codigo_nef = "00102";          //Nivel del centro de costo
                     _codigo_epi_aprobado = "00103"; //Estado previo inventario
                     _codigo_epi_anulado = "00105";  //Estado previo inventario
@@ -595,13 +599,15 @@ namespace EPPs.Controllers
                     _codigo_tti_consumo = "001029";  //Tipo de comprobante de inventario
                     break;
                 case "Continental Logistics":
+                    _connection = "continentalLogisticsConnection";
                     _codigo_nef = "00102";          //Nivel del centro de costo
                     _codigo_epi_aprobado = "00103"; //Estado previo inventario
                     _codigo_epi_anulado = "00105";  //Estado previo inventario
-                    _codigo_usu_aprueba = "004";  //Usuario
-                    _codigo_tti_consumo = "001029";  //Tipo de comprobante de inventario
+                    _codigo_usu_aprueba = "026";  //Usuario
+                    _codigo_tti_consumo = "001005";  //Tipo de comprobante de inventario
                     break;
                 default:
+                    _connection = "";
                     _codigo_nef = "";          //Nivel del centro de costo
                     _codigo_epi_aprobado = ""; //Estado previo inventario
                     _codigo_epi_anulado = "";  //Estado previo inventario

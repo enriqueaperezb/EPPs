@@ -202,7 +202,7 @@
                         <h5 class="mb-2">Artículos a entregar</h5>
                         <div class="panel-scroll" style="height:40vh; overflow-y:auto;">
                             <div id="detalle-contenedor" class="pb-2">
-                                <div class="text-muted">Selecciona un registro para ver el detalle…</div>
+                                <div class="text-muted">Selecciona un previo inventario para ver el detalle…</div>
                             </div>
                         </div>
                     <!--</div>-->
@@ -225,7 +225,7 @@
                         </tr>
                     </thead>
                     <tbody id="tabla-historial">
-                        <tr><td colspan="3" class="text-muted">Seleccione una fila del detalle…</td></tr>
+                        <tr><td colspan="3" class="text-muted">Selecciona un artículo a entregar para ver el historial…</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -407,7 +407,7 @@
             }
 
             function insertarFilaNueva() {
-                if (!idActual) { alert('Primero selecciona un registro del maestro.'); return; }
+                if (!idActual) { alert('Primero selecciona un previo inventario.'); return; }
                 const tbody = cont.querySelector('table tbody');
                 if (!tbody) return;
 
@@ -500,7 +500,7 @@
 
                 if (btnGuardar) {
                     e.preventDefault(); e.stopPropagation();
-                    if (!idActual) { alert('Selecciona un registro del maestro.'); return; }
+                    if (!idActual) { alert('Selecciona un previo inventario.'); return; }
 
                     // 1) Capturar automáticamente el frame actual de la cámara
                     capture();
