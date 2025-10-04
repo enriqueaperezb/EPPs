@@ -68,46 +68,52 @@
         #detalle-panel .table tbody tr.fila-detalle:hover {
             background-color: rgba(0,0,0,.03);
         }
-</style>
-
-<!-- Empresa -->
-<div class="d-flex align-items-center mb-2" style="max-width:480px;">
-    <label for="empresaSelect" class="me-2 fw-bold">Empresa:</label>
-    <select id="empresaSelect" class="form-select">
-        <option value="">Seleccione la empresa...</option>
-        <option value="Bellarosa">Bellarosa</option>
-        <option value="Continental Logistics">Continental Logistics</option>
-        <option value="Qualisa">Qualisa</option>
-        <option value="Royal Flowers">Royal Flowers</option>
-        <option value="Sisapamba">Sisapamba</option>
-    </select>
-</div>
-
-<form asp-action="Index" method="get" class="mb-3" role="search">
-    <!-- Carnet -->
-    <div style="display:flex; gap:.5rem; align-items:center;">
-        <label for="codigo_emp" class="me-2 fw-bold">Carnét:</label>
-        <input type="text"
-               name="codigo_emp"
-               value="@codigo_emp"
-               id="codigoEmpleado"
-               placeholder="Carné..."
-               class="form-control"
-               style="max-width:160px;" />
-        <button type="submit" class="btn btn-primary">Buscar</button>
-        <a asp-action="Index" class="btn btn-outline-secondary">Limpiar</a>
-        <!-- Nombre del empleado -->
-
-        <input type="text" class="form-control" id="nombreEmpleado"
-               value="@((string)(ViewBag.NombreEmpleado ?? ""))" readonly />
-
-
-    </div>
-</form>
+        /* Color distinto solo para la selección de la tabla 2 (detalle) */
+        #detalle-panel .table tbody tr.fila-detalle.table-active {
+            background-color: #d4edda !important; /* azul claro */
+            color: #000 !important;
+        }
+ </style>
 
 <div class="row g-3">
     <!-- Columna izquierda: Maestro -->
-    <div class="col-lg-9">
+    <div class="col-lg-8">
+
+        <!-- Empresa -->
+        <div class="d-flex align-items-center mb-2" style="max-width:480px;">
+            <label for="empresaSelect" class="me-2 fw-bold">Empresa:</label>
+            <select id="empresaSelect" class="form-select">
+                <option value="">Seleccione la empresa...</option>
+                <option value="Bellarosa">Bellarosa</option>
+                <option value="Continental Logistics">Continental Logistics</option>
+                <option value="Qualisa">Qualisa</option>
+                <option value="Royal Flowers">Royal Flowers</option>
+                <option value="Sisapamba">Sisapamba</option>
+            </select>
+        </div>
+
+        <form asp-action="Index" method="get" class="mb-3" role="search">
+            <!-- Carnet -->
+            <div style="display:flex; gap:.5rem; align-items:center;">
+                <label for="codigo_emp" class="me-2 fw-bold">Carnét:</label>
+                <input type="text"
+                       name="codigo_emp"
+                       value="@codigo_emp"
+                       id="codigoEmpleado"
+                       placeholder="Carné..."
+                       class="form-control"
+                       style="max-width:160px;" />
+                <button type="submit" class="btn btn-primary">Buscar</button>
+                <a asp-action="Index" class="btn btn-outline-secondary">Limpiar</a>
+                <!-- Nombre del empleado -->
+
+                <input type="text" class="form-control" id="nombreEmpleado"
+                       value="@((string)(ViewBag.NombreEmpleado ?? ""))" readonly />
+
+
+            </div>
+        </form>
+
         <div id="maestro-panel" class="panel">
             <h5 class="mb-2">Previo Inventario - Consumos</h5>
             <div class="panel-scroll" style="height:25vh; overflow-y:auto;">
@@ -143,7 +149,7 @@
     </div>
 
     <!-- Columna derecha: Webcam -->
-    <div class="col-lg-3">
+    <div class="col-lg-4">
         <div id="webcam-box">
             <div class="d-flex justify-content-between align-items-center mb-1">
                 <!-- <strong>Captura</strong> -->
@@ -209,322 +215,333 @@
 @section Scripts {
     <script>
         (() => {
-        document.addEventListener("DOMContentLoaded", () => {
-        const inputCodigo = document.getElementById("codigoEmpleado");
-        if (inputCodigo) {
-        inputCodigo.focus();   // 🔥 el cursor se coloca automáticamente aquí
-        }
-        });
+            document.addEventListener("DOMContentLoaded", () => {
+                const inputCodigo = document.getElementById("codigoEmpleado");
+                if (inputCodigo) {
+                    inputCodigo.focus();   // 🔥 el cursor se coloca automáticamente aquí
+                }
+            });
         })();
     </script>
 
     <script>
         (() => {
-        const tabla = document.getElementById('tabla-maestro');
-        const contenedorDetalle = document.getElementById('detalle-contenedor');
-        let seleccionada;
+            const tabla = document.getElementById('tabla-maestro');
+            const contenedorDetalle = document.getElementById('detalle-contenedor');
+            let seleccionada;
 
-        async function cargarDetalle(id) {
-        // Mostrar un loader simple
-        contenedorDetalle.innerHTML = '<div class="text-muted">Cargando detalle…</div>';
-        try {
-        const resp = await fetch(`@Url.Action("previoInventario_detalle", "Home")?codigo_cpi=${encodeURIComponent(id)}`, {
-        method: 'GET',
-        headers: { 'X-Requested-With': 'XMLHttpRequest' }
-        });
-        if (!resp.ok) throw new Error('Error al cargar detalle');
-        const html = await resp.text();
-        contenedorDetalle.innerHTML = html;
-        } catch (err) {
-        console.error(err);
-        contenedorDetalle.innerHTML = '<div class="text-danger">No se pudo cargar el detalle.</div>';
-        }
-        }
+            async function cargarDetalle(id) {
+                // Mostrar un loader simple
+                contenedorDetalle.innerHTML = '<div class="text-muted">Cargando detalle…</div>';
+                try {
+                    const resp = await fetch(`@Url.Action("previoInventario_detalle", "Home")?codigo_cpi=${encodeURIComponent(id)}`, {
+                        method: 'GET',
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                    });
+                    if (!resp.ok) throw new Error('Error al cargar detalle');
+                    const html = await resp.text();
+                    contenedorDetalle.innerHTML = html;
 
-        tabla?.addEventListener('click', (e) => {
-        const tr = e.target.closest('tr.fila-maestro');
-        if (!tr) return;
-        const id = tr.getAttribute('data-codigo_cpi');
-        if (!id) return;
+                    // 👉 Seleccionar la primera fila automáticamente
+                    const firstRow = contenedorDetalle.querySelector('tr.fila-detalle');
+                    if (firstRow) {
+                        firstRow.classList.add('table-active');
+                        firstRow.scrollIntoView({ block: 'nearest' });
 
-        // Resaltar selección
-        if (seleccionada) seleccionada.classList.remove('table-primary');
-        tr.classList.add('table-primary');
-        seleccionada = tr;
+                        // Simular el click para que dispare la lógica de cargarHistorial
+                        firstRow.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+                    }
+                } catch (err) {
+                    console.error(err);
+                    contenedorDetalle.innerHTML = '<div class="text-danger">No se pudo cargar el detalle.</div>';
+                }
+            }
 
-        // Cargar detalle
-        cargarDetalle(id);
-        });
+            tabla?.addEventListener('click', (e) => {
+                const tr = e.target.closest('tr.fila-maestro');
+                if (!tr) return;
+                const id = tr.getAttribute('data-codigo_cpi');
+                if (!id) return;
 
-        // (Opcional) Autoseleccionar la primera fila al cargar
-        const primera = tabla?.querySelector('tbody tr.fila-maestro');
-        if (primera) {
-        primera.classList.add('table-primary');
-        seleccionada = primera;
-        const idIni = primera.getAttribute('data-codigo_cpi');
-        if (idIni) cargarDetalle(idIni);
-        }
+                // Resaltar selección
+                if (seleccionada) seleccionada.classList.remove('table-primary');
+                tr.classList.add('table-primary');
+                seleccionada = tr;
+
+                // Cargar detalle
+                cargarDetalle(id);
+            });
+
+            // (Opcional) Autoseleccionar la primera fila al cargar
+            const primera = tabla?.querySelector('tbody tr.fila-maestro');
+            if (primera) {
+                primera.classList.add('table-primary');
+                seleccionada = primera;
+                const idIni = primera.getAttribute('data-codigo_cpi');
+                if (idIni) cargarDetalle(idIni);
+            }
         })();
     </script>
 
     <script>
         // --- TTS simple ---
         function speak(text) {
-        if (!('speechSynthesis' in window) || !text) return;
-        window.speechSynthesis.cancel();
-        const u = new SpeechSynthesisUtterance(text);
-        u.lang = 'es-ES';
-        u.rate = 0.95;
-        window.speechSynthesis.speak(u);
+            if (!('speechSynthesis' in window) || !text) return;
+            window.speechSynthesis.cancel();
+            const u = new SpeechSynthesisUtterance(text);
+            u.lang = 'es-ES';
+            u.rate = 0.95;
+            window.speechSynthesis.speak(u);
         }
 
         // Al cargar la página (después de Buscar), leer el nombre del ViewBag y hablarlo
         document.addEventListener('DOMContentLoaded', () => {
-        // Usamos JSON seguro para no romper con comillas/acentos
-        const nombreInicial = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
-            (string)(ViewBag?.NombreEmpleado ?? "")
+            // Usamos JSON seguro para no romper con comillas/acentos
+            const nombreInicial = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+                (string)(ViewBag?.NombreEmpleado ?? "")
             ));
-    if (nombreInicial) {
-    speak(`Empleado: ${nombreInicial}`);
-    }
-    });
-</script>
-<script>
-    (() => {
-    // --- utilidades cookie ---
-    function setCookie(name, value, days) {
-    const d = new Date();
-    d.setTime(d.getTime() + (days*24*60*60*1000));
-    document.cookie = `${name}=${encodeURIComponent(value)};expires=${d.toUTCString()};path=/`;
-    }
-    function getCookie(name) {
-    const cname = name + "=";
-    const arr = document.cookie.split(';');
-    for (let c of arr) {
-    c = c.trim();
-    if (c.indexOf(cname) === 0) return decodeURIComponent(c.substring(cname.length, c.length));
-    }
-    return "";
-    }
-
-        // --- dropdown empresa ---
-        const ddl = document.getElementById('empresaSelect');
-        if (!ddl) return;
-
-        // 1) Intentamos preseleccionar usando el valor que envía el servidor (ViewBag.Empresa)
-        const fromServer = "@(ViewBag.Empresa as string ?? "")";
-        if (fromServer) {
-        ddl.value = fromServer;
-        } else {
-        // 2) Si el servidor no envió nada, leemos el cookie
-        const c = getCookie('empresa');
-        if (c) ddl.value = c;
-        }
-
-        // 3) Cuando cambie, guardamos cookie por 180 días
-        ddl.addEventListener('change', () => {
-        const val = ddl.value || "";
-        setCookie('empresa', val, 180);
+            if (nombreInicial) {
+                speak(`Empleado: ${nombreInicial}`);
+            }   
         });
+    </script>
+
+    <script>
+        (() => {
+            // --- utilidades cookie ---
+            function setCookie(name, value, days) {
+                const d = new Date();
+                d.setTime(d.getTime() + (days*24*60*60*1000));
+                document.cookie = `${name}=${encodeURIComponent(value)};expires=${d.toUTCString()};path=/`;
+            }
+            function getCookie(name) {
+                const cname = name + "=";
+                const arr = document.cookie.split(';');
+                for (let c of arr) {
+                    c = c.trim();
+                    if (c.indexOf(cname) === 0) return decodeURIComponent(c.substring(cname.length, c.length));
+                }
+                return "";
+            }
+
+            // --- dropdown empresa ---
+            const ddl = document.getElementById('empresaSelect');
+            if (!ddl) return;
+
+            // 1) Intentamos preseleccionar usando el valor que envía el servidor (ViewBag.Empresa)
+            const fromServer = "@(ViewBag.Empresa as string ?? "")";
+            if (fromServer) {
+                ddl.value = fromServer;
+            } else {
+                // 2) Si el servidor no envió nada, leemos el cookie
+                const c = getCookie('empresa');
+                if (c) ddl.value = c;
+            }
+
+            // 3) Cuando cambie, guardamos cookie por 180 días
+            ddl.addEventListener('change', () => {
+                const val = ddl.value || "";
+                setCookie('empresa', val, 180);
+            });
         })();
     </script>
 
     <script>
         (() => {
-        if (window.__detalleHandlersBound) return;
-        window.__detalleHandlersBound = true;
+            if (window.__detalleHandlersBound) return;
+            window.__detalleHandlersBound = true;
 
-        const cont  = document.getElementById('detalle-contenedor');
-        const tabla = document.getElementById('tabla-maestro');
-        let idActual = null;         // codigo_cpi del maestro seleccionado
-        let newCounter = 0;          // contador para IDs temporales de líneas nuevas (new-1, new-2, ...)
+            const cont  = document.getElementById('detalle-contenedor');
+            const tabla = document.getElementById('tabla-maestro');
+            let idActual = null;         // codigo_cpi del maestro seleccionado
+            let newCounter = 0;          // contador para IDs temporales de líneas nuevas (new-1, new-2, ...)
 
-        // Maestro → recordamos el id seleccionado
-        tabla?.addEventListener('click', (e) => {
-        const tr = e.target.closest('tr.fila-maestro');
-        if (!tr) return;
-        idActual = tr.dataset.codigo_cpi || null;
-        });
-        const first = tabla?.querySelector('tbody tr.fila-maestro');
-        if (first && !idActual) idActual = first.dataset.codigo_cpi || null;
+            // Maestro → recordamos el id seleccionado
+            tabla?.addEventListener('click', (e) => {
+                const tr = e.target.closest('tr.fila-maestro');
+                if (!tr) return;
+                idActual = tr.dataset.codigo_cpi || null;
+            });
+            const first = tabla?.querySelector('tbody tr.fila-maestro');
+            if (first && !idActual) idActual = first.dataset.codigo_cpi || null;
 
-        function getToken() {
-        const inp = cont.querySelector('input[name="__RequestVerificationToken"]');
-        return inp ? inp.value : '';
-        }
+            function getToken() {
+                const inp = cont.querySelector('input[name="__RequestVerificationToken"]');
+                return inp ? inp.value : '';
+            }
 
-        function renderEstadoCab(code) {
-        const el = document.getElementById('estadoCab');
-        if (!el) return;
-        el.textContent = code || '—';
-        let cls = 'badge ';
-        if (code === '00103') cls += 'bg-success';
-        else if (code === '00105') cls += 'bg-warning text-dark';
-        else cls += 'bg-secondary';
-        el.className = cls;
-        }
+            function renderEstadoCab(code) {
+                const el = document.getElementById('estadoCab');
+                if (!el) return;
+                el.textContent = code || '—';
+                let cls = 'badge ';
+                if (code === '00103') cls += 'bg-success';
+                else if (code === '00105') cls += 'bg-warning text-dark';
+                else cls += 'bg-secondary';
+                el.className = cls;
+            }
 
-        function insertarFilaNueva() {
-        if (!idActual) { alert('Primero selecciona un registro del maestro.'); return; }
-        const tbody = cont.querySelector('table tbody');
-        if (!tbody) return;
+            function insertarFilaNueva() {
+                if (!idActual) { alert('Primero selecciona un registro del maestro.'); return; }
+                const tbody = cont.querySelector('table tbody');
+                if (!tbody) return;
 
-        const firstSelect = cont.querySelector('select.articulo-select');
-        const optionsHtml = firstSelect ? firstSelect.innerHTML : '<option value="">-- Seleccione --</option>';
+                const firstSelect = cont.querySelector('select.articulo-select');
+                const optionsHtml = firstSelect ? firstSelect.innerHTML : '<option value="">-- Seleccione --</option>';
 
-        const tempId = `new-${++newCounter}`; // 👈 ID temporal único por línea nueva
+                const tempId = `new-${++newCounter}`; // 👈 ID temporal único por línea nueva
 
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-        <td><em>${tempId}</em></td>
-        <td>
-        <select class="form-select form-select-sm articulo-select" data-codigo="${tempId}">
-        ${optionsHtml}
-        </select>
-        </td>
-        <td style="width:130px;">
-        <input type="number" step="1" class="form-control form-control-sm cantidad-input text-end"
-        data-codigo="${tempId}" value="1" />
-        </td>
-        <td class="text-center">
-        <input type="checkbox" class="chk-linea" value="${tempId}" checked />
-        </td>
-        `;
-        tbody.prepend(tr);
-        }
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><em>${tempId}</em></td>
+                    <td>
+                    <select class="form-select form-select-sm articulo-select" data-codigo="${tempId}">
+                    ${optionsHtml}
+                    </select>
+                    </td>
+                    <td style="width:130px;">
+                    <input type="number" step="1" class="form-control form-control-sm cantidad-input text-end"
+                    data-codigo="${tempId}" value="1" />
+                    </td>
+                    <td class="text-center">
+                    <input type="checkbox" class="chk-linea" value="${tempId}" checked />
+                    </td>
+                    `;
+                tbody.prepend(tr);
+            }
 
-        async function doSaveOnce(buildPayloadFn) {
-        if (window.__saveInFlight) return;
-        window.__saveInFlight = true;
-        try {
+            async function doSaveOnce(buildPayloadFn) {
+                if (window.__saveInFlight) return;
+                window.__saveInFlight = true;
+                try {
 
-        const payload = buildPayloadFn();
-        if (!payload) { window.__saveInFlight = false; return; }
+                    const payload = buildPayloadFn();
+                    if (!payload) { window.__saveInFlight = false; return; }
 
-        const resp = await fetch('@Url.Action("GuardarPrevioDetalle", "Home")', {
-        method: 'POST',
-        headers: {
-        'Content-Type': 'application/json',
-        'RequestVerificationToken': getToken()
-        },
-        body: JSON.stringify(payload)
-        });
-        if (!resp.ok) throw new Error(await resp.text());
-        const data = await resp.json();
+                    const resp = await fetch('@Url.Action("GuardarPrevioDetalle", "Home")', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'RequestVerificationToken': getToken()
+                        },
+                        body: JSON.stringify(payload)
+                    });
+                    if (!resp.ok) throw new Error(await resp.text());
+                    const data = await resp.json();
 
-        alert(`Cambios aplicados. Actualizados: ${data.updated} | Insertados: ${data.inserted} | Eliminados: ${data.deleted}`);
-        window.location.href = '@Url.Action("Index", "Home")?reset=1';
+                    alert(`Cambios aplicados. Actualizados: ${data.updated} | Insertados: ${data.inserted} | Eliminados: ${data.deleted}`);
+                    window.location.href = '@Url.Action("Index", "Home")?reset=1';
 
-        // Recarga el detalle desde BD para ver los nuevos con sus codigo_dpv reales
-        if (idActual && typeof cargarDetalle === 'function') {
-        await cargarDetalle(idActual);
-        // reset del contador si quieres que vuelva a contar desde 0 tras guardar
-        newCounter = 0;
-        }
-        } catch (err) {
-        console.error(err);
-        alert('No se pudieron guardar los cambios.');
-        } finally {
-        window.__saveInFlight = false;
-        }
-        }
+                    // Recarga el detalle desde BD para ver los nuevos con sus codigo_dpv reales
+                    if (idActual && typeof cargarDetalle === 'function') {
+                    await cargarDetalle(idActual);
+                    // reset del contador si quieres que vuelva a contar desde 0 tras guardar
+                    newCounter = 0;
+                    }
+                } catch (err) {
+                    console.error(err);
+                    alert('No se pudieron guardar los cambios.');
+                } finally {
+                    window.__saveInFlight = false;
+                }
+            }
 
-        // Delegación de eventos (un solo listener)
-        cont.addEventListener('click', (e) => {
-        const btnAgregar   = e.target.closest('#btn-agregar-linea');
-        const btnSelectAll = e.target.closest('#btn-seleccionar-todo');
-        const btnGuardar   = e.target.closest('#btn-guardar-detalle');
+            // Delegación de eventos (un solo listener)
+            cont.addEventListener('click', (e) => {
+                const btnAgregar   = e.target.closest('#btn-agregar-linea');
+                const btnSelectAll = e.target.closest('#btn-seleccionar-todo');
+                const btnGuardar   = e.target.closest('#btn-guardar-detalle');
 
-        if (btnAgregar) {
-        e.preventDefault(); e.stopPropagation();
-        insertarFilaNueva();
-        return;
-        }
+                if (btnAgregar) {
+                    e.preventDefault(); e.stopPropagation();
+                    insertarFilaNueva();
+                    return;
+                }
 
-        if (btnSelectAll) {
-        e.preventDefault(); e.stopPropagation();
-        cont.querySelectorAll('.chk-linea').forEach(cb => cb.checked = true);
-        return;
-        }
+                if (btnSelectAll) {
+                    e.preventDefault(); e.stopPropagation();
+                    cont.querySelectorAll('.chk-linea').forEach(cb => cb.checked = true);
+                    return;
+                }
 
-        if (btnGuardar) {
-        e.preventDefault(); e.stopPropagation();
-        if (!idActual) { alert('Selecciona un registro del maestro.'); return; }
+                if (btnGuardar) {
+                    e.preventDefault(); e.stopPropagation();
+                    if (!idActual) { alert('Selecciona un registro del maestro.'); return; }
 
-        // 1) Capturar automáticamente el frame actual de la cámara
-        capture();
+                    // 1) Capturar automáticamente el frame actual de la cámara
+                    capture();
 
-        doSaveOnce(() => {
-        const items = [];         // existentes seleccionados -> UPDATE
-        const nuevos = [];        // nuevas filas -> INSERT (sin codigo_dpv)
-        const todosCodigos = [];  // SOLO códigos existentes visibles -> para DELETE
+                    doSaveOnce(() => {
+                    const items = [];         // existentes seleccionados -> UPDATE
+                    const nuevos = [];        // nuevas filas -> INSERT (sin codigo_dpv)
+                    const todosCodigos = [];  // SOLO códigos existentes visibles -> para DELETE
 
-        cont.querySelectorAll('tr').forEach(tr => {
-        const sel = tr.querySelector('select.articulo-select');
-        const qty = tr.querySelector('input.cantidad-input');
-        const chk = tr.querySelector('input.chk-linea');
-        if (!sel || !qty || !chk) return;
+                    cont.querySelectorAll('tr').forEach(tr => {
+                    const sel = tr.querySelector('select.articulo-select');
+                    const qty = tr.querySelector('input.cantidad-input');
+                    const chk = tr.querySelector('input.chk-linea');
+                    if (!sel || !qty || !chk) return;
 
-        const codigo = sel.dataset.codigo;   // puede ser '12345' (existente) o 'new-1' (temporal)
-        const isNew = !codigo || codigo.startsWith('new-');
+                    const codigo = sel.dataset.codigo;   // puede ser '12345' (existente) o 'new-1' (temporal)
+                    const isNew = !codigo || codigo.startsWith('new-');
 
-        // Para delete consideramos SOLO existentes (no agregues los 'new-*' a todosCodigos)
-        if (!isNew) todosCodigos.push(codigo);
+                    // Para delete consideramos SOLO existentes (no agregues los 'new-*' a todosCodigos)
+                    if (!isNew) todosCodigos.push(codigo);
 
-        // Solo guardamos filas seleccionadas
-        if (!chk.checked) return;
+                    // Solo guardamos filas seleccionadas
+                    if (!chk.checked) return;
 
-        const codigoArticulo = sel.value;
-        const cantidad = parseFloat((qty.value || '').replace(',', '.'));
-        if (!codigoArticulo || isNaN(cantidad) || cantidad <= 0) return;
+                    const codigoArticulo = sel.value;
+                    const cantidad = parseFloat((qty.value || '').replace(',', '.'));
+                    if (!codigoArticulo || isNaN(cantidad) || cantidad <= 0) return;
 
-        if (isNew) {
-        // Nueva línea → no enviamos 'Codigo'
-        nuevos.push({ CodigoArticulo: codigoArticulo, Cantidad: cantidad });
-        } else {
-        // Existente → UPDATE
-        items.push({ Codigo: codigo, CodigoArticulo: codigoArticulo, Cantidad: cantidad });
-        }
-        });
+                    if (isNew) {
+                    // Nueva línea → no enviamos 'Codigo'
+                    nuevos.push({ CodigoArticulo: codigoArticulo, Cantidad: cantidad });
+                    } else {
+                    // Existente → UPDATE
+                    items.push({ Codigo: codigo, CodigoArticulo: codigoArticulo, Cantidad: cantidad });
+                    }
+                    });
 
-        // Enviamos codigoCpi para el INSERT
-        return { codigoCpi: idActual, items, todosCodigos, nuevos, FotoBase64: fotoBase64 || null };
-        });
-        }
-        });
+                    // Enviamos codigoCpi para el INSERT
+                    return { codigoCpi: idActual, items, todosCodigos, nuevos, FotoBase64: fotoBase64 || null };
+                    });
+                }
+            });
 
-        // --- Cámara ---
-        const video = document.getElementById('cam');
-        const canvas = document.getElementById('snap');
-        // const st = document.getElementById('fotoStatus');
+            // --- Cámara ---
+            const video = document.getElementById('cam');
+            const canvas = document.getElementById('snap');
+            // const st = document.getElementById('fotoStatus');
 
-        let stream = null;
-        let fotoBase64 = null; // se enviará en el POST si existe
+            let stream = null;
+            let fotoBase64 = null; // se enviará en el POST si existe
 
-        async function startCam() {
-        try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: 640, height: 480 }, audio: false });
-        video.srcObject = stream;
-        //st.textContent = 'grabando...';
-        } catch (e) {
-        console.error(e);
-        alert('No se pudo acceder a la cámara.');
-        }
-        }
+            async function startCam() {
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: 640, height: 480 }, audio: false });
+                    video.srcObject = stream;
+                    //st.textContent = 'grabando...';
+                } catch (e) {
+                    console.error(e);
+                    alert('No se pudo acceder a la cámara.');
+                }
+            }
 
-        function capture() {
-        const w = video.videoWidth || 640;
-        const h = video.videoHeight || 480;
-        canvas.width = w; canvas.height = h;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(video, 0, 0, w, h);
-        fotoBase64 = canvas.toDataURL('image/jpeg', 0.92); // <-- JPEG
-        //st.textContent = 'capturada';
-        }
+            function capture() {
+                const w = video.videoWidth || 640;
+                const h = video.videoHeight || 480;
+                canvas.width = w; canvas.height = h;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(video, 0, 0, w, h);
+                fotoBase64 = canvas.toDataURL('image/jpeg', 0.92); // <-- JPEG
+                //st.textContent = 'capturada';
+            }
 
-        document.addEventListener("DOMContentLoaded", () => {
-        startCam(); // se ejecuta automáticamente al cargar la página
-        });
+            document.addEventListener("DOMContentLoaded", () => {
+                startCam(); // se ejecuta automáticamente al cargar la página
+            });
 
         })();
 
@@ -532,82 +549,82 @@
 
     <script>
         (() => {
-        const detalleCont = document.getElementById('detalle-contenedor');
-        const tbHist = document.getElementById('tabla-historial');
-        const inputEmp = document.getElementById('codigoEmpActual');
+            const detalleCont = document.getElementById('detalle-contenedor');
+            const tbHist = document.getElementById('tabla-historial');
+            const inputEmp = document.getElementById('codigoEmpActual');
 
-        function firstWord(text) {
-        if (!text) return '';
-        const w = text.trim().split(/\s+/)[0] || '';
-        return w.normalize ? w.normalize('NFD').replace(/[\u0300-\u036f]/g,'') : w; // sin tildes
-        }
+            function firstWord(text) {
+                if (!text) return '';
+                const w = text.trim().split(/\s+/)[0] || '';
+                return w.normalize ? w.normalize('NFD').replace(/[\u0300-\u036f]/g,'') : w; // sin tildes
+            }
 
-        function renderHistorial(rows) {
-        tbHist.innerHTML = '';
-        if (!rows || rows.length === 0) {
-        tbHist.innerHTML = `<tr><td colspan="3" class="text-muted">Sin resultados.</td></tr>`;
-        return;
-        }
-        const frag = document.createDocumentFragment();
-        rows.forEach(r => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-        <td>${r.fecha}</td>
-        <td>${r.nombre}</td>
-        <td style="text-align:right;">${Number(r.cantidad).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}</td>
-        `;
-        frag.appendChild(tr);
-        });
-        tbHist.appendChild(frag);
-        }
+            function renderHistorial(rows) {
+                tbHist.innerHTML = '';
+                if (!rows || rows.length === 0) {
+                    tbHist.innerHTML = `<tr><td colspan="3" class="text-muted">Sin resultados.</td></tr>`;
+                    return;
+                }
+                const frag = document.createDocumentFragment();
+                rows.forEach(r => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                    <td>${r.fecha}</td>
+                    <td>${r.nombre}</td>
+                    <td style="text-align:right;">${Number(r.cantidad).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+                    `;
+                    frag.appendChild(tr);
+                });
+                tbHist.appendChild(frag);
+            }
 
-        async function cargarHistorial(codigoEmp, palabra) {
-        if (!codigoEmp || !palabra) {
-        renderHistorial([]);
-        return;
-        }
-        try {
-        const url = `@Url.Action("HistorialArticulo", "Home")?codigoEmp=${encodeURIComponent(codigoEmp)}&q=${encodeURIComponent(palabra)}`;
-        const resp = await fetch(url, { headers: { 'Accept': 'application/json' }});
-        if (!resp.ok) throw new Error(await resp.text());
-        const data = await resp.json(); // [{fecha,nombre,cantidad}]
-        renderHistorial(data);
-        } catch (err) {
-        console.error(err);
-        renderHistorial([]);
-        }
-        }
+            async function cargarHistorial(codigoEmp, palabra) {
+                if (!codigoEmp || !palabra) {
+                    renderHistorial([]);
+                    return;
+                }
+                try {
+                    const url = `@Url.Action("HistorialArticulo", "Home")?codigoEmp=${encodeURIComponent(codigoEmp)}&q=${encodeURIComponent(palabra)}`;
+                    const resp = await fetch(url, { headers: { 'Accept': 'application/json' }});
+                    if (!resp.ok) throw new Error(await resp.text());
+                    const data = await resp.json(); // [{fecha,nombre,cantidad}]
+                    renderHistorial(data);
+                } catch (err) {
+                    console.error(err);
+                    renderHistorial([]);
+                }
+            }
 
-        // Delegación: click en una fila del DETALLE (tabla 2)
-        detalleCont.addEventListener('click', (e) => {
-        // evita clicks en inputs/selects/botones
-        const target = e.target;
-        if (target.closest('input,select,button,label')) return;
+            // Delegación: click en una fila del DETALLE (tabla 2)
+            detalleCont.addEventListener('click', (e) => {
+                // evita clicks en inputs/selects/botones
+                const target = e.target;
+                if (target.closest('input,select,button,label')) return;
 
-        const tr = target.closest('tr');
-        if (!tr) return;
+                const tr = target.closest('tr');
+                if (!tr) return;
 
-        // 1) Pintar la fila seleccionada (como en la tabla 1)
-        detalleCont.querySelectorAll('tr.fila-detalle.table-active')
-        .forEach(r => r.classList.remove('table-active'));
-        tr.classList.add('table-active');
+                // 1) Pintar la fila seleccionada (como en la tabla 1)
+                detalleCont.querySelectorAll('tr.fila-detalle.table-active')
+                .forEach(r => r.classList.remove('table-active'));
+                tr.classList.add('table-active');
 
-        // Obtén el nombre del artículo desde el select de esa fila:
-        const sel = tr.querySelector('select.articulo-select');
-        let nombreArticulo = '';
-        if (sel) {
-        const opt = sel.options[sel.selectedIndex];
-        nombreArticulo = opt ? opt.text : '';
-        } else {
-        // si tu vista muestra el nombre como texto en una celda:
-        const tdArt = tr.querySelector('td:nth-child(2)');
-        nombreArticulo = tdArt ? tdArt.textContent.trim() : '';
-        }
+                // Obtén el nombre del artículo desde el select de esa fila:
+                const sel = tr.querySelector('select.articulo-select');
+                let nombreArticulo = '';
+                if (sel) {
+                    const opt = sel.options[sel.selectedIndex];
+                    nombreArticulo = opt ? opt.text : '';
+                } else {
+                    // si tu vista muestra el nombre como texto en una celda:
+                    const tdArt = tr.querySelector('td:nth-child(2)');
+                    nombreArticulo = tdArt ? tdArt.textContent.trim() : '';
+                }
 
-        const palabra = firstWord(nombreArticulo);
-        const codigoEmp = inputEmp?.value || '';
-        cargarHistorial(codigoEmp, palabra);
-        });
+                const palabra = firstWord(nombreArticulo);
+                const codigoEmp = inputEmp?.value || '';
+                cargarHistorial(codigoEmp, palabra);
+            });
         })();
     </script>
 
