@@ -193,20 +193,36 @@ namespace EPPs.Controllers
                 }
             }
 
-            const string sqlEfc = @"SELECT codigo_efc, nombre_efc FROM dbo.d_est_fisi_cost WHERE codigo_nef = '00102' ORDER BY nombre_efc;";
+            const string sqlEfc = @"
+                SELECT 
+                    codigo_efc, nombre_efc
+                FROM 
+                    dbo.d_est_fisi_cost
+                WHERE
+                    codigo_nef = @codigo_nef
+                ORDER BY 
+                    nombre_efc;"; 
+            
             var centros = new List<SelectListItem>();
 
             await using (var cmd3 = new SqlCommand(sqlEfc, conn))
-            //cmd3.Parameters.Add(new SqlParameter("@codigo_nef", SqlDbType.NVarChar, 200) { Value = (object?)_codigo_nef ?? DBNull.Value });
-            await using (var r3 = await cmd3.ExecuteReaderAsync())
             {
-                while (await r3.ReadAsync())
+                // Agregas el parámetro correctamente
+                cmd3.Parameters.Add(new SqlParameter("@codigo_nef", SqlDbType.NVarChar, 200)
                 {
-                    centros.Add(new SelectListItem
+                    Value = (object?)_codigo_nef ?? DBNull.Value
+                });
+
+                await using (var r3 = await cmd3.ExecuteReaderAsync())
+                {
+                    while (await r3.ReadAsync())
                     {
-                        Value = r3.GetString(0),
-                        Text = r3.GetString(1)
-                    });
+                        centros.Add(new SelectListItem
+                        {
+                            Value = r3.GetString(0),
+                            Text = r3.GetString(1)
+                        });
+                    }
                 }
             }
             var vm = new previoInventario_detalleListado

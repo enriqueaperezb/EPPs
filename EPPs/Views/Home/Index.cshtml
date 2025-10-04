@@ -86,6 +86,22 @@
         }
  </style>
 
+ <style>
+    /* Botones de la barra del detalle: dibujar el foco hacia ADENTRO */
+    #detalle-panel .btn:focus,
+    #detalle-panel .btn:focus-visible {
+        outline: 2px solid #0d6efd !important; /* azul Bootstrap */
+        outline-offset: -2px !important; /* ← mueve el outline dentro del botón */
+        box-shadow: none !important; /* evita doble efecto con el de Bootstrap */
+        z-index: 2;
+    }
+    /* Un pequeño colchón arriba para que no toque el borde del panel */
+    #detalle-panel .btn-toolbar,
+    #detalle-panel .d-flex.gap-2 {
+        padding-top: 2px;
+    }
+ </style>
+
 <div class="row g-3">
     <!-- Columna izquierda: Maestro -->
     <div class="col-lg-8">
@@ -183,14 +199,14 @@
                 <div id="detalle-contenedor" class="pb-2">
                     <!-- aquí se inyecta _previoInventario_detalle.cshtml -->
                     <!-- Panel Detalle debajo, ancho completo -->
-                    <div id="detalle-panel" class="panel mt-3">
+                    <!--<div id="detalle-panel" class="panel mt-3">-->
                         <h5 class="mb-2">Artículos a entregar</h5>
                         <div class="panel-scroll" style="height:40vh; overflow-y:auto;">
                             <div id="detalle-contenedor" class="pb-2">
                                 <div class="text-muted">Selecciona un registro para ver el detalle…</div>
                             </div>
                         </div>
-                    </div>
+                    <!--</div>-->
                 </div>
             </div>
         </div>
