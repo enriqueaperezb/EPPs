@@ -273,7 +273,10 @@ namespace EPPs.Controllers
                 VALUES 
                     (@codigo_cpi, (SELECT '00'+CONVERT(VARCHAR,MAX_NUM_BLO+1) FROM S_BLOQUEO WHERE TABLA_BLO LIKE 'i_det_prev_inve'), @codigo_art, @cantidad, @cantidad, 0, @codigo_efc);
 
-                UPDATE S_BLOQUEO SET MAX_NUM_BLO=MAX_NUM_BLO+1 FROM S_BLOQUEO WHERE TABLA_BLO LIKE 'i_det_prev_inve';";
+                UPDATE 
+                    S_BLOQUEO 
+                SET 
+                    MAX_NUM_BLO=MAX_NUM_BLO+1 FROM S_BLOQUEO WHERE TABLA_BLO LIKE 'i_det_prev_inve';";
 
             // 1) Normaliza colecciones
             var itemsSel = req.Items ?? new List<ItemCambio>();
@@ -284,7 +287,7 @@ namespace EPPs.Controllers
             //    - Si NO hay seleccionados NI nuevos => 0012 (no borrar nada)
             //    - Si hay seleccionados o nuevos    => 0011 (y se borran los no seleccionados)
             var haySeleccion = (itemsSel.Count + nuevos.Count) > 0;
-            var estadoEpi = haySeleccion ? "00103" : "00105";
+            var estadoEpi = haySeleccion ? _codigo_epi_aprobado : _codigo_epi_anulado;
 
             int updated = 0, inserted = 0, deleted = 0, headersUpdated = 0;
 
