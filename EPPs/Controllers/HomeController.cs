@@ -527,9 +527,9 @@ namespace EPPs.Controllers
                     dbo.i_det_prev_inve AS d
                     INNER JOIN dbo.i_cab_prev_inve AS c ON c.codigo_cpi = d.codigo_cpi
                     INNER JOIN dbo.c_articulo AS a ON a.codigo_art = d.codigo_art 
-                    --INNER JOIN dbo.i_det_comp_inve as i ON i.codigo_dpv = d.codigo_dpv -- Solo articulos del previo entregados ojo
+                    INNER JOIN dbo.i_det_comp_inve as i ON i.codigo_dpv = d.codigo_dpv -- Solo articulos del previo entregados ojo
                 WHERE c.codigo_epi = @codigo_epi
-                    AND c.observacion_cpi LIKE 'EPP%'
+                    --AND c.observacion_cpi LIKE 'EPP%'
                     AND c.codigo_tti = @codigo_tti
                     AND c.codigo_emp = @emp
                     AND a.nombre_art LIKE @pat
