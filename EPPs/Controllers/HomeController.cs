@@ -527,7 +527,7 @@ namespace EPPs.Controllers
                     dbo.i_det_prev_inve AS d
                     INNER JOIN dbo.i_cab_prev_inve AS c ON c.codigo_cpi = d.codigo_cpi
                     INNER JOIN dbo.c_articulo AS a ON a.codigo_art = d.codigo_art 
-                    INNER JOIN dbo.i_det_comp_inve as i ON i.codigo_dpv = d.codigo_dpv -- Solo articulos del previo entregados ojo
+                    INNER JOIN dbo.i_det_comp_inve as i ON i.codigo_dpv = d.codigo_dpv -- Solo articulos del previo entregados 
                 WHERE c.codigo_epi = @codigo_epi
                     --AND c.observacion_cpi LIKE 'EPP%'
                     AND c.codigo_tti = @codigo_tti
@@ -571,7 +571,7 @@ namespace EPPs.Controllers
                     _codigo_nef = "00102";          //Nivel del centro de costo
                     _codigo_epi_aprobado = "00103"; //Estado previo inventario
                     _codigo_epi_anulado = "00105";  //Estado previo inventario
-                    _codigo_usu_aprueba = "017";  //Usuario
+                    _codigo_usu_aprueba = "017";  //Usuario MPAGUAY
                     _codigo_tti_consumo = "001005";  //Tipo de comprobante de inventario
                     break;
                 case "Qualisa":
@@ -579,7 +579,7 @@ namespace EPPs.Controllers
                     _codigo_nef = "00102";          //Nivel del centro de costo
                     _codigo_epi_aprobado = "00103"; //Estado previo inventario
                     _codigo_epi_anulado = "00105";  //Estado previo inventario
-                    _codigo_usu_aprueba = "138";  //Usuario
+                    _codigo_usu_aprueba = "138";  //Usuario MPAGUAY
                     _codigo_tti_consumo = "001012";  //Tipo de comprobante de inventario
                     break;
                 case "Royal Flowers":
@@ -587,7 +587,7 @@ namespace EPPs.Controllers
                     _codigo_nef = "00102";          //Nivel del centro de costo
                     _codigo_epi_aprobado = "00103"; //Estado previo inventario
                     _codigo_epi_anulado = "00104";  //Estado previo inventario
-                    _codigo_usu_aprueba = "465";  //Usuario
+                    _codigo_usu_aprueba = "465";  //Usuario MPAGUAY
                     _codigo_tti_consumo = "001012";  //Tipo de comprobante de inventario
                     break;
                 case "Sisapamba":
@@ -595,7 +595,7 @@ namespace EPPs.Controllers
                     _codigo_nef = "00102";          //Nivel del centro de costo
                     _codigo_epi_aprobado = "00103"; //Estado previo inventario
                     _codigo_epi_anulado = "00105";  //Estado previo inventario
-                    _codigo_usu_aprueba = "004";  //Usuario
+                    _codigo_usu_aprueba = "004";  //Usuario MPAGUAY
                     _codigo_tti_consumo = "001029";  //Tipo de comprobante de inventario
                     break;
                 case "Continental Logistics":
@@ -603,11 +603,11 @@ namespace EPPs.Controllers
                     _codigo_nef = "00102";          //Nivel del centro de costo
                     _codigo_epi_aprobado = "00103"; //Estado previo inventario
                     _codigo_epi_anulado = "00105";  //Estado previo inventario
-                    _codigo_usu_aprueba = "026";  //Usuario
+                    _codigo_usu_aprueba = "026";  //Usuario MPAGUAY
                     _codigo_tti_consumo = "001005";  //Tipo de comprobante de inventario
                     break;
                 default:
-                    _connection = "";
+                    _connection = "defaultConnection";
                     _codigo_nef = "";          //Nivel del centro de costo
                     _codigo_epi_aprobado = ""; //Estado previo inventario
                     _codigo_epi_anulado = "";  //Estado previo inventario
@@ -615,6 +615,157 @@ namespace EPPs.Controllers
                     _codigo_tti_consumo = "";  //Tipo de comprobante de inventario
                     break;
             }
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> ReporteInventario(string? empresa, string? codigo_emp, DateTime? desde, DateTime? hasta)
+        {
+            // SIN COOKIES: la empresa llega por querystring
+            var vm = new ReporteFiltroVM
+            {
+                Empresa = empresa,
+                CodigoEmp = codigo_emp,
+                Desde = desde,
+                Hasta = hasta
+            };
+
+            // Si no hay filtros, solo muestra la vista vacía
+            if (string.IsNullOrWhiteSpace(empresa) && string.IsNullOrWhiteSpace(codigo_emp) && !desde.HasValue && !hasta.HasValue)
+                return View(vm);
+
+            // Si tu app usa conexiones por empresa, haz un switch/allow-list AQUI (sin cookies)
+            var connName = "DefaultConnection";
+            switch (empresa)
+            {
+                case "Bellarosa":
+                    _connection = "bellarosaConnection";
+                    _codigo_nef = "00102";          //Nivel del centro de costo
+                    _codigo_epi_aprobado = "00103"; //Estado previo inventario
+                    _codigo_epi_anulado = "00105";  //Estado previo inventario
+                    _codigo_usu_aprueba = "017";  //Usuario MPAGUAY
+                    _codigo_tti_consumo = "001005";  //Tipo de comprobante de inventario
+                    break;
+                case "Qualisa":
+                    _connection = "qualisaConnection";
+                    _codigo_nef = "00102";          //Nivel del centro de costo
+                    _codigo_epi_aprobado = "00103"; //Estado previo inventario
+                    _codigo_epi_anulado = "00105";  //Estado previo inventario
+                    _codigo_usu_aprueba = "138";  //Usuario MPAGUAY
+                    _codigo_tti_consumo = "001012";  //Tipo de comprobante de inventario
+                    break;
+                case "Royal Flowers":
+                    _connection = "royalFlowersConnection";
+                    _codigo_nef = "00102";          //Nivel del centro de costo
+                    _codigo_epi_aprobado = "00103"; //Estado previo inventario
+                    _codigo_epi_anulado = "00104";  //Estado previo inventario
+                    _codigo_usu_aprueba = "465";  //Usuario MPAGUAY
+                    _codigo_tti_consumo = "001012";  //Tipo de comprobante de inventario
+                    break;
+                case "Sisapamba":
+                    _connection = "sisapambaConnection";
+                    _codigo_nef = "00102";          //Nivel del centro de costo
+                    _codigo_epi_aprobado = "00103"; //Estado previo inventario
+                    _codigo_epi_anulado = "00105";  //Estado previo inventario
+                    _codigo_usu_aprueba = "004";  //Usuario MPAGUAY
+                    _codigo_tti_consumo = "001029";  //Tipo de comprobante de inventario
+                    break;
+                case "Continental Logistics":
+                    _connection = "continentalLogisticsConnection";
+                    _codigo_nef = "00102";          //Nivel del centro de costo
+                    _codigo_epi_aprobado = "00103"; //Estado previo inventario
+                    _codigo_epi_anulado = "00105";  //Estado previo inventario
+                    _codigo_usu_aprueba = "026";  //Usuario MPAGUAY
+                    _codigo_tti_consumo = "001005";  //Tipo de comprobante de inventario
+                    break;
+                default:
+                    _connection = "defaultConnection";
+                    _codigo_nef = "";          //Nivel del centro de costo
+                    _codigo_epi_aprobado = ""; //Estado previo inventario
+                    _codigo_epi_anulado = "";  //Estado previo inventario
+                    _codigo_usu_aprueba = "";  //Usuario
+                    _codigo_tti_consumo = "";  //Tipo de comprobante de inventario
+                    break;
+            }
+
+            var cs = _config.GetConnectionString(connName);
+            const string sql = @"
+                SELECT 
+                    c.codigo_cpi,
+                    c.fecha_elabo_cpi,
+                    a.nombre_art,
+                    d.cantidad_dpv,
+                    ISNULL(c.pdf_normal_cpi,'') AS foto
+                FROM dbo.i_cab_prev_inve c
+                INNER JOIN dbo.i_det_prev_inve d ON d.codigo_cpi = c.codigo_cpi
+                INNER JOIN dbo.c_articulo a ON a.codigo_art = d.codigo_art
+                INNER JOIN dbo.i_det_comp_inve e ON e.codigo_dpv = d.codigo_dpv -- Solo entregados
+                WHERE --(@empresa = '' OR @empresa IS NULL OR c.empresa = @empresa)
+                  --AND 
+                  (@codigo_emp = '' OR @codigo_emp IS NULL OR c.codigo_emp = @codigo_emp)
+                  AND (@desde IS NULL OR c.fecha_elabo_cpi >= @desde)
+                  AND (@hasta IS NULL OR c.fecha_elabo_cpi < DATEADD(DAY,1,@hasta))
+                ORDER BY c.codigo_cpi, c.fecha_elabo_cpi, a.nombre_art;";
+
+            var grupos = new Dictionary<string, ReporteGrupoVM>();
+
+            await using var cn = new SqlConnection(cs);
+            await cn.OpenAsync();
+            await using var cmd = new SqlCommand(sql, cn);
+            cmd.Parameters.Add(new SqlParameter("@empresa", SqlDbType.NVarChar, 100) { Value = (object?)empresa ?? DBNull.Value });
+            cmd.Parameters.Add(new SqlParameter("@codigo_emp", SqlDbType.NVarChar, 50) { Value = (object?)codigo_emp ?? DBNull.Value });
+            cmd.Parameters.Add(new SqlParameter("@desde", SqlDbType.DateTime) { Value = (object?)desde ?? DBNull.Value });
+            cmd.Parameters.Add(new SqlParameter("@hasta", SqlDbType.DateTime) { Value = (object?)hasta ?? DBNull.Value });
+
+            await using var rdr = await cmd.ExecuteReaderAsync();
+            while (await rdr.ReadAsync())
+            {
+                var cpi = rdr.GetString(0);
+                var fec = rdr.GetDateTime(1);
+                var art = rdr.GetString(2);
+                var cant = rdr.GetDecimal(3);
+                var foto = rdr.IsDBNull(4) ? "" : rdr.GetString(4);
+
+                if (!grupos.TryGetValue(cpi, out var g))
+                {
+                    g = new ReporteGrupoVM { CodigoCpi = cpi, FotoUrl = string.IsNullOrWhiteSpace(foto) ? null : foto };
+                    grupos[cpi] = g;
+                }
+                g.Lineas.Add(new ReporteLineaVM
+                {
+                    FechaElaboCpi = fec,
+                    Articulo = art,
+                    Cantidad = cant
+                });
+            }
+
+            /* --- consulta del nombre: OTRA CONEXIÓN --- */
+            ViewBag.NombreEmpleado = "";
+            if (!string.IsNullOrWhiteSpace(codigo_emp))
+            {
+                await using var cn2 = new SqlConnection(cs); // distinta conexión
+                await cn2.OpenAsync();
+                const string sqlEmp = @"
+                   SELECT 
+	                    apellido_emp + ' ' + nombre_emp + ' | ' + nombre_eor + ' | ' + nombre_cag
+                    FROM 
+	                    dbo.r_empleado INNER JOIN
+	                    dbo.r_estruc_organi ON dbo.r_estruc_organi.codigo_eor = dbo.r_empleado.codigo_eor INNER JOIN
+	                    dbo.r_cargo on dbo.r_cargo.codigo_cag = dbo.r_empleado.codigo_cag
+                    WHERE
+                        dbo.r_empleado.codigo_emp = @codigo_emp;";
+                await using var cmdEmp = new SqlCommand(sqlEmp, cn2);
+                cmdEmp.Parameters.Add(new SqlParameter("@codigo_emp", SqlDbType.NVarChar, 50) { Value = codigo_emp });
+                var result = await cmdEmp.ExecuteScalarAsync();
+                ViewBag.NombreEmpleado = result?.ToString() ?? "";
+            }
+            else
+            {
+                ViewBag.NombreEmpleado = "Empleado no encontrado...";
+            }
+
+
+            vm.Grupos = grupos.Values.ToList();
+            return View(vm);
         }
 
     }

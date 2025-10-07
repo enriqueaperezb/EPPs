@@ -1,0 +1,156 @@
+﻿@model ReporteFiltroVM
+@{
+    ViewData["Title"] = "Reporte Inventario";
+}
+<style>
+  /* Layout y scroll */
+  .rep-box { background:#fff; border:1px solid #e5e7eb; border-radius:.5rem; padding:.75rem; }
+  .rep-scroll { height:60vh; overflow-y:auto; }
+  .rep-table th, .rep-table td { vertical-align: middle; }
+  /* impresión: imprime todo (filtros + tabla) y quita límites de scroll */
+  @@media print {
+    .no-print { display:none !important; }
+    .rep-scroll { height:auto !important; overflow:visible !important; }
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+  /* imagen de foto */
+  .rep-foto { max-width: 220px; border:1px solid #ddd; border-radius:.25rem; }
+
+  label.fw-bold {
+    min-width: 100px;
+    display: inline-block;
+    font-weight: bolder;
+  }
+
+  .grupo-par td {
+    background-color: #ffffff;
+  }
+
+  .grupo-impar td {
+    background-color: #f9fafb;
+  }
+
+  /* Línea divisoria entre entregas (código_cpi) */
+  tr.entrega-sep td {
+    border-top: 3px solid #dee2e6 !important; /* gris claro Bootstrap */
+  }
+</style>
+
+<div class="container-fluid">
+  <h4 class="mb-3">Reporte de entrega de Equipos de Protección Personal</h4>
+
+  <!-- Filtros -->
+  <form method="get" asp-action="ReporteInventario" asp-controller="Home" class="rep-box mb-3">
+    <div class="row g-2 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label fw-bold">Empresa</label>
+        <select name="empresa" class="form-select">
+            @foreach (var emp in new[] { "Bellarosa", "Qualisa", "Royal Flowers", "Sisapamba", "Continental Logistics" })
+            {
+                if (Model.Empresa == emp)
+                {
+                    <option value="@emp" selected>@emp</option>
+                }
+                else
+                {
+                    <option value="@emp">@emp</option>
+                }
+            }
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label fw-bold">Carnét</label>
+        <input type="text" name="codigo_emp" value="@(Model.CodigoEmp ?? "")" class="form-control" />
+      </div>
+      <div class="col-md-2">
+        <label class="form-label fw-bold">Desde</label>
+        <input type="date" name="desde" value="@(Model.Desde?.ToString("yyyy-MM-dd") ?? "")" class="form-control" />
+      </div>
+      <div class="col-md-2">
+        <label class="form-label fw-bold">Hasta</label>
+        <input type="date" name="hasta" value="@(Model.Hasta?.ToString("yyyy-MM-dd") ?? "")" class="form-control" />
+      </div>
+      <div class="col-md-2 d-flex gap-2">
+        <button type="submit" class="btn btn-primary w-100">Buscar</button>
+        <a class="btn btn-secondary w-100 no-print" asp-controller="Home" asp-action="ReporteInventario">Limpiar</a>
+      </div>
+    </div>
+  </form>
+
+  @if (!string.IsNullOrWhiteSpace(ViewBag.NombreEmpleado as string))
+  {
+      <div class="mb-3">
+          <label class="fw-bold">Nombre:</label>
+          <span>@ViewBag.NombreEmpleado</span>
+      </div>
+  }
+
+  <!-- Resultados -->
+  <div class="rep-box rep-scroll">
+    <table class="table table-sm rep-table">
+      <thead class="table-light">
+        <tr>
+          <th style="width:12%;">Previo Inv.</th>
+          <th style="width:16%;">Fecha</th>
+          <th>Artículo</th>
+          <th style="width:12%; text-align:right;">Cantidad</th>
+          <th style="width:18%;">Foto</th>
+        </tr>
+      </thead>
+      <tbody>
+      @if (Model.Grupos == null || Model.Grupos.Count == 0)
+      {
+        <tr><td colspan="5" class="text-center text-muted py-4">Sin resultados</td></tr>
+      }
+      else
+      {
+
+        int grupoIndex = 0;
+        @foreach (var g in Model.Grupos)
+        {
+            var rows = g.Lineas.Count;
+            var bgClass = (grupoIndex % 2 == 0) ? "grupo-par" : "grupo-impar";
+            grupoIndex++;
+            for (int i = 0; i < rows; i++)
+            {
+                var ln = g.Lineas[i];
+                var sepClass = (grupoIndex > 1 && i == 0) ? "entrega-sep" : ""; // agrega línea solo entre grupos
+                <tr class="@bgClass @sepClass">
+                    @if (i == 0)
+                    {
+                        <td rowspan="@rows"><strong>@g.CodigoCpi</strong></td>
+                    }
+                    @if (i == 0)
+                    {
+                        <td rowspan="@rows"><strong>@ln.FechaElaboCpi.ToString("yyyy-MM-dd")</strong></td>
+                    }
+                    <td>@ln.Articulo</td>
+                    <td style="text-align:right;">@Math.Round(ln.Cantidad).ToString("N0")</td>
+                    @if (i == 0)
+                    {
+                        <td rowspan="@rows">
+                            @if (!string.IsNullOrWhiteSpace(g.FotoUrl))
+                            {
+                                <img src="@g.FotoUrl" alt="foto" class="rep-foto" />
+                            }
+                            else
+                            {
+                                <span class="text-muted">Sin foto</span>
+                            }
+                        </td>
+                    }
+                </tr>
+            }
+                    }
+            <!-- Línea sombreada entre entregas -->
+            <tr class="sep-grupo"><td colspan="5"></td></tr>
+
+      }
+      </tbody>
+    </table>
+  </div>
+
+  <div class="mt-3 d-flex gap-2 no-print">
+    <button class="btn btn-outline-secondary" onclick="window.print()">Imprimir</button>
+  </div>
+</div>

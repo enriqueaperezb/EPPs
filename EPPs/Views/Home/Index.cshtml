@@ -564,7 +564,7 @@
                 }
             }
 
-            function capture() {
+            function capture_back() {
                 const w = video.videoWidth || 640;
                 const h = video.videoHeight || 480;
                 canvas.width = w; canvas.height = h;
@@ -573,6 +573,43 @@
                 fotoBase64 = canvas.toDataURL('image/jpeg', 0.92); // <-- JPEG
                 //st.textContent = 'capturada';
             }
+
+            function capture() {
+                if (!video) return;
+                const w = video.videoWidth || 640;
+                const h = video.videoHeight || 480;
+                canvas.width = w;
+                canvas.height = h;
+                const ctx = canvas.getContext('2d');
+
+                // Dibujar la imagen base
+                ctx.drawImage(video, 0, 0, w, h);
+
+                // Preparar el texto de fecha
+                const now = new Date();
+                const fecha = now.toLocaleDateString('es-EC');
+                const hora = now.toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                const texto = `${fecha} ${hora}`;
+
+                // Estilo del texto
+                ctx.font = "20px Arial";
+                ctx.fillStyle = "rgba(255,255,255,0.9)";   // texto blanco semiopaco
+                ctx.strokeStyle = "rgba(0,0,0,0.6)";       // borde negro para contraste
+                ctx.lineWidth = 2;
+
+                // Posición: esquina inferior derecha
+                const x = w - ctx.measureText(texto).width - 20;
+                const y = h - 20;
+
+                // Sombra o borde para mejorar visibilidad
+                ctx.strokeText(texto, x, y);
+                ctx.fillText(texto, x, y);
+
+                // Generar la imagen final
+                fotoBase64 = canvas.toDataURL('image/jpeg', 0.92);
+                //st.textContent = 'capturada';
+            }
+
 
             document.addEventListener("DOMContentLoaded", () => {
                 startCam(); // se ejecuta automáticamente al cargar la página
