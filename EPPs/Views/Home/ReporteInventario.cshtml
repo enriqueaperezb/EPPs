@@ -92,8 +92,8 @@
         <tr>
           <th style="width:12%;">Previo Inv.</th>
           <th style="width:16%;">Fecha</th>
-          <th>Artículo</th>
           <th style="width:12%; text-align:right;">Cantidad</th>
+          <th>Artículo</th>
           <th style="width:18%;">Foto</th>
         </tr>
       </thead>
@@ -124,8 +124,8 @@
                     {
                         <td rowspan="@rows"><strong>@ln.FechaElaboCpi.ToString("yyyy-MM-dd")</strong></td>
                     }
-                    <td>@ln.Articulo</td>
                     <td style="text-align:right;">@Math.Round(ln.Cantidad).ToString("N0")</td>
+                    <td>@ln.Articulo</td>
                     @if (i == 0)
                     {
                         <td rowspan="@rows">

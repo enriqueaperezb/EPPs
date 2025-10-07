@@ -694,7 +694,7 @@ namespace EPPs.Controllers
                     c.fecha_elabo_cpi,
                     a.nombre_art,
                     d.cantidad_dpv,
-                    ISNULL(c.pdf_normal_cpi,'') AS foto
+                    ISNULL(REPLACE(c.pdf_normal_cpi,'\\10.39.10.30\EPPs\wwwroot\uploads\fotos\','http://10.39.10.30:3777/uploads/fotos/'),'') AS foto
                 FROM dbo.i_cab_prev_inve c
                 INNER JOIN dbo.i_det_prev_inve d ON d.codigo_cpi = c.codigo_cpi
                 INNER JOIN dbo.c_articulo a ON a.codigo_art = d.codigo_art
