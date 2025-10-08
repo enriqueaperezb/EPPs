@@ -14,7 +14,7 @@
     body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   }
   /* imagen de foto */
-  .rep-foto { max-width: 220px; border:1px solid #ddd; border-radius:.25rem; }
+  .rep-foto { max-width: 245px; border:1px solid #ddd; border-radius:.25rem; }
 
   label.fw-bold {
     min-width: 100px;
@@ -35,6 +35,46 @@
     border-top: 3px solid #dee2e6 !important; /* gris claro Bootstrap */
   }
 </style>
+
+<style>
+    /* ===== IMPRESIÓN ===== */
+    @@media print {
+      /* quitar márgenes de página (ajusta a tu gusto) */
+      @@page { size: A4; margin: 8mm 8mm; } /* menos márgenes que el default */
+
+      /* ocupar todo el ancho disponible */
+      html, body { margin: 0 !important; padding: 0 !important; }
+      .container, .container-fluid {
+        max-width: none !important;
+        width: 100% !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+      }
+
+      /* ocultar menús, barra superior, breadcrumbs, botones auxiliares */
+      header, nav, .navbar, .navbar-nav, .navbar-brand, .breadcrumb,
+      .no-print, .btn, .btn-group, .btn-toolbar,
+      .sidebar, footer {
+        display: none !important;
+      }
+
+      /* limpiar bordes y sombras de las cajas para imprimir ajustado */
+      .rep-box { border: 0 !important; box-shadow: none !important; padding: 0 !important; }
+      .rep-scroll { height: auto !important; overflow: visible !important; }
+
+      /* colores fieles al imprimir */
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+      /* tabla al 100% y tipografía compacta si quieres */
+      .rep-table { width: 100% !important; }
+    }
+
+    /* (opcional en pantalla) contenedor del reporte un poco más ancho */
+    @@media screen and (min-width: 1200px) {
+      .container-fluid { max-width: 1280px; }
+    }
+</style>
+
 
 <div class="container-fluid">
   <h4 class="mb-3">Reporte de entrega de Equipos de Protección Personal</h4>
@@ -90,11 +130,10 @@
     <table class="table table-sm rep-table">
       <thead class="table-light">
         <tr>
-          <th style="width:12%;">Previo Inv.</th>
-          <th style="width:16%;">Fecha</th>
-          <th style="width:12%; text-align:right;">Cantidad</th>
+          <th style="width:12%;">Fecha / Previo</th>
+          <th style="width:6%; text-align:right;">Cantidad</th>
           <th>Artículo</th>
-          <th style="width:18%;">Foto</th>
+          <th style="width:20%;">Foto</th>
         </tr>
       </thead>
       <tbody>
@@ -118,12 +157,13 @@
                 <tr class="@bgClass @sepClass">
                     @if (i == 0)
                     {
-                        <td rowspan="@rows"><strong>@g.CodigoCpi</strong></td>
-                    }
-                    @if (i == 0)
-                    {
-                        <td rowspan="@rows"><strong>@ln.FechaElaboCpi.ToString("yyyy-MM-dd")</strong></td>
-                    }
+                        <td rowspan="@rows" class="align-middle">
+                            <div class="fw-bold">@g.Lineas.FirstOrDefault()?.FechaElaboCpi.ToString("yyyy-MM-dd")</div>
+                            <div class="text-muted" style="font-size:0.9em;">
+                                @g.CodigoCpi
+                            </div>
+                        </td>
+                    }                    
                     <td style="text-align:right;">@Math.Round(ln.Cantidad).ToString("N0")</td>
                     <td>@ln.Articulo</td>
                     @if (i == 0)
