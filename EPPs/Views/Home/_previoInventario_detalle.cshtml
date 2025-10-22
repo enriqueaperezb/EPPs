@@ -23,57 +23,73 @@
         {
             foreach (var d in Model.Detalles)
             {
-                <tr class="fila-detalle" data-codigo="@d.Codigo">
-                    <td>@d.Codigo</td>
+                if (@d.Estado == "Aprobado")
+                {
+                    <tr class="fila-detalle" data-codigo="@d.Codigo">
+                        <td>@d.Codigo</td>
+                        <!-- Combo de artículos: muestra nombre, envía código -->
+                        <td>@d.Articulo</td>
+                        <!-- NUEVO: Centro de Costo -->
+                        <td>@d.CentroCosto</td>
+                        <!-- Cantidad editable -->
+                        <td style="width:70px;">@(d.Cantidad.ToString("F0", System.Globalization.CultureInfo.InvariantCulture))</td>
+                        <td class="text-center">@d.Entrega.ToString("yyyy-MM-dd")</td>
+                        </tr>
+                }
+                else
+                {
+                    <tr class="fila-detalle" data-codigo="@d.Codigo">
+                        <td>@d.Codigo</td>
 
-                    <!-- Combo de artículos: muestra nombre, envía código -->
-                    <td>
-                        <select class="form-select form-select-sm articulo-select"
-                                data-codigo="@d.Codigo">
-                            @foreach (var a in Model.Articulos)
-                            {
-                                if (a.Value == d.CodigoArticulo)
+                        <!-- Combo de artículos: muestra nombre, envía código -->
+                        <td>
+                            <select class="form-select form-select-sm articulo-select"
+                                    data-codigo="@d.Codigo">
+                                @foreach (var a in Model.Articulos)
                                 {
-                                    <option value="@a.Value" selected>@a.Text</option>
+                                    if (a.Value == d.CodigoArticulo)
+                                    {
+                                        <option value="@a.Value" selected>@a.Text</option>
+                                    }
+                                    else
+                                    {
+                                        <option value="@a.Value">@a.Text</option>
+                                    }
                                 }
-                                else
-                                {
-                                    <option value="@a.Value">@a.Text</option>
-                                }
-                            }
-                        </select>
-                    </td>
+                            </select>
+                        </td>
 
-                    <!-- NUEVO: Centro de Costo -->
-                    <td>
-                        <select class="form-select form-select-sm centrocosto-select" data-codigo="@d.Codigo">
-                            @foreach (var c in Model.CentrosCosto)
-                            {
-                                if (c.Value == d.CodigoCentroCosto)
+                        <!-- NUEVO: Centro de Costo -->
+                        <td>
+                            <select class="form-select form-select-sm centrocosto-select" data-codigo="@d.Codigo">
+                                @foreach (var c in Model.CentrosCosto)
                                 {
-                                    <option value="@c.Value" selected>@c.Text</option>
+                                    if (c.Value == d.CodigoCentroCosto)
+                                    {
+                                        <option value="@c.Value" selected>@c.Text</option>
+                                    }
+                                    else
+                                    {
+                                        <option value="@c.Value">@c.Text</option>
+                                    }
                                 }
-                                else
-                                {
-                                    <option value="@c.Value">@c.Text</option>
-                                }
-                            }
-                        </select>
-                    </td>
+                            </select>
+                        </td>
 
-                    <!-- Cantidad editable -->
-                    <td style="width:70px;">
-                        <input type="number"
-                               step="1"
-                               class="form-control form-control-sm cantidad-input text-end"
-                               data-codigo="@d.Codigo"
-                               value="@(d.Cantidad.ToString("F0", System.Globalization.CultureInfo.InvariantCulture))" />
-                    </td>
+                        <!-- Cantidad editable -->
+                        <td style="width:70px;">
+                            <input type="number"
+                                   step="1"
+                                   class="form-control form-control-sm cantidad-input text-end"
+                                   data-codigo="@d.Codigo"
+                                   value="@(d.Cantidad.ToString("F0", System.Globalization.CultureInfo.InvariantCulture))" />
+                        </td>
 
-                    <td class="text-center">
-                        <input type="checkbox" class="chk-linea" value="@d.Codigo" />
-                    </td>
-                </tr>
+                        <td class="text-center">
+                            <input type="checkbox" class="chk-linea" value="@d.Codigo" />
+                        </td>
+                    </tr>
+                }
             }
         }
         else

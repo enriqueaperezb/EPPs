@@ -102,6 +102,14 @@
     }
  </style>
 
+ <style>
+    #detalle-panel .btn.disabled,
+    #detalle-panel .btn:disabled {
+        cursor: not-allowed !important;
+        opacity: .65 !important;
+    }
+ </style>
+
 <div class="row g-3">
     <!-- Columna izquierda: Maestro -->
     <div class="col-lg-8">
@@ -117,6 +125,7 @@
                 <option value="Qualisa">Qualisa</option>
                 <option value="Royal Flowers">Royal Flowers</option>
                 <option value="Sisapamba">Sisapamba</option>
+                <option value="Test">Test</option>
             </select>
         </div>
 
@@ -151,6 +160,7 @@
                         <tr>
                             <th>Código</th>
                             <th>Fecha</th>
+                            <th>Estado</th>
                             <th>Observación</th>
                         </tr>
                     </thead>
@@ -159,9 +169,10 @@
                         {
                             foreach (var r in Model)
                             {
-                                <tr class="fila-maestro" data-codigo_cpi="@r.Codigo" style="cursor:pointer;">
+                                <tr class="fila-maestro" data-codigo_cpi="@r.Codigo" style="cursor:pointer;" data-estado="@r.Estado">
                                     <td>@r.Codigo</td>
                                     <td>@r.Fecha.ToString("yyyy-MM-dd")</td>
+                                    <td>@r.Estado</td>
                                     <td>@r.Observacion</td>
                                 </tr>
                             }
@@ -275,6 +286,13 @@
 
                         // Simular el click para que dispare la lógica de cargarHistorial
                         firstRow.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+                        //Definimos si es o no editable
+                        const firstMasterRow = document.querySelector('#maestro-panel tr.fila-maestro');
+                        if (firstMasterRow) {
+                          const estado = (firstMasterRow.dataset.estado || '').trim();
+                          setDetalleEditable(estado.toLowerCase() !== 'aprobado'.toLowerCase());
+                        }
                     }
                 } catch (err) {
                     console.error(err);
@@ -287,6 +305,11 @@
                 if (!tr) return;
                 const id = tr.getAttribute('data-codigo_cpi');
                 if (!id) return;
+
+                // estado del cabecero seleccionado
+                const estado = (tr.dataset.estado || '').trim();
+                const puedeEditar = estado.toLowerCase() !== 'aprobado'.toLowerCase();
+                setDetalleEditable(puedeEditar);
 
                 // Resaltar selección
                 if (seleccionada) seleccionada.classList.remove('table-primary');
@@ -560,7 +583,7 @@
                     //st.textContent = 'grabando...';
                 } catch (e) {
                     console.error(e);
-                    alert('No se pudo acceder a la cámara.');
+                    //alert('No se pudo acceder a la cámara.');
                 }
             }
 
@@ -651,7 +674,11 @@
 
               // cargar historial con el empleado actual
               const codigoEmp = (document.getElementById('codigoEmpActual')?.value || '').trim();
-              cargarHistorial(codigoEmp, palabra);
+
+              // NUEVO: excluir el mismo detalle
+              const excludeCodigoDpv = tr?.dataset.codigo || '';    
+
+              cargarHistorial(codigoEmp, palabra, excludeCodigoDpv);
             });
         
             function renderHistorial(rows) {
@@ -672,19 +699,26 @@
                 tbHist.appendChild(frag);
             }
 
-            async function cargarHistorial(codigoEmp, palabra) {
-                if (!codigoEmp || !palabra) {
-                    renderHistorial([]);
-                    return;
-                }
+            async function cargarHistorial(codigoEmp, palabra, excludeCodigoDpv) {
                 try {
-                    const url = `@Url.Action("HistorialArticulo", "Home")?codigoEmp=${encodeURIComponent(codigoEmp)}&q=${encodeURIComponent(palabra)}`;
-                    const resp = await fetch(url, { headers: { 'Accept': 'application/json' }});
+                    if (!codigoEmp || !palabra) {
+                        renderHistorial([]);
+                        return;
+                    }
+
+                    const url = `/Home/HistorialArticulo`
+                        + `?codigoEmp=${encodeURIComponent(codigoEmp)}`
+                        + `&q=${encodeURIComponent(palabra)}`
+                        + (excludeCodigoDpv ? `&exclude=${encodeURIComponent(excludeCodigoDpv)}` : "");
+
+                    const resp = await fetch(url, { headers: { 'Accept': 'application/json' } });
                     if (!resp.ok) throw new Error(await resp.text());
-                    const data = await resp.json(); // [{fecha,nombre,cantidad}]
+
+                    const data = await resp.json();
                     renderHistorial(data);
-                } catch (err) {
-                    console.error(err);
+                }
+                catch (err) {
+                    console.error("🔥 Error en cargarHistorial:", err);
                     renderHistorial([]);
                 }
             }
@@ -717,11 +751,29 @@
 
                 const palabra = firstWord(nombreArticulo);
                 const codigoEmp = inputEmp?.value || '';
-                cargarHistorial(codigoEmp, palabra);
+
+                // NUEVO: detalle actual a excluir
+                const excludeCodigoDpv = tr.dataset.codigo || '';
+
+                cargarHistorial(codigoEmp, palabra, excludeCodigoDpv);
             });
         })();
     </script>
 
+    <script>
+          function setDetalleEditable(canEdit) {
+          // Solo los botones que pediste
+          ["btn-agregar-linea", "btn-seleccionar-todo", "btn-guardar-detalle"].forEach(id => {
+            const b = document.getElementById(id);
+            if (b) {
+              b.disabled = !canEdit;
+              b.classList.toggle('disabled', !canEdit);
+              // opcional: feedback visual del cursor
+              if (!canEdit) { b.title = 'No editable: estado Aprobado'; } else { b.removeAttribute('title'); }
+            }
+          });
+        }
+    </script>
 }
 
 

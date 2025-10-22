@@ -63,21 +63,23 @@ namespace EPPs.Controllers
             var resultados = new List<previoInventario>();
             var connStr = _config.GetConnectionString(_connection);
 
-            // Listamos los previos inventarios no aprobados, EPP, tipo consumo, del empleado 
+            // Listamos los previos inventarios, EPP, tipo consumo, del empleado 
             const string sql = @"
                 SELECT
-                    dbo.i_cab_prev_inve.codigo_cpi codigo,
-                    dbo.i_cab_prev_inve.fecha_elabo_cpi fecha,
-                    ISNULL(dbo.i_cab_prev_inve.observacion_cpi,'') observacion
+                    i_cab_prev_inve.codigo_cpi codigo,
+                    i_cab_prev_inve.fecha_elabo_cpi fecha,
+                    ISNULL(dbo.i_cab_prev_inve.observacion_cpi,'') observacion,
+                    dbo.i_est_prev_inve.nombre_epi estado
                 FROM
-                    dbo.i_cab_prev_inve
+                    dbo.i_cab_prev_inve INNER JOIN
+                    dbo.i_est_prev_inve ON dbo.i_est_prev_inve.codigo_epi = dbo.i_cab_prev_inve.codigo_epi
                 WHERE 
-                    (dbo.i_cab_prev_inve.codigo_emp LIKE @codigo_emp) AND
-                    (dbo.i_cab_prev_inve.codigo_epi not like @codigo_epi) AND
+                    (dbo.i_cab_prev_inve.codigo_emp LIKE '00' + RIGHT(@codigo_emp,LEN(@codigo_emp)-2)) AND
+                    --(dbo.i_cab_prev_inve.codigo_epi not like @codigo_epi) AND
                     (dbo.i_cab_prev_inve.observacion_cpi LIKE 'EPP%') 
                     AND dbo.i_cab_prev_inve.codigo_tti LIKE @codigo_tti
                 ORDER BY 
-                    dbo.i_cab_prev_inve.codigo_cpi DESC;";
+                    i_cab_prev_inve.codigo_cpi DESC;";
 
             await using var conn = new SqlConnection(connStr);
             await conn.OpenAsync();
@@ -85,7 +87,7 @@ namespace EPPs.Controllers
             await using (var cmd = new SqlCommand(sql, conn))
             {
                 cmd.Parameters.Add(new SqlParameter("@codigo_emp", SqlDbType.NVarChar, 200) { Value = (object?)codigo_emp ?? DBNull.Value });
-                cmd.Parameters.Add(new SqlParameter("@codigo_epi", SqlDbType.NVarChar, 200) { Value = (object?)_codigo_epi_aprobado ?? DBNull.Value });
+                //cmd.Parameters.Add(new SqlParameter("@codigo_epi", SqlDbType.NVarChar, 200) { Value = (object?)_codigo_epi_aprobado ?? DBNull.Value });
                 cmd.Parameters.Add(new SqlParameter("@codigo_tti", SqlDbType.NVarChar, 200) { Value = (object?)_codigo_tti_consumo ?? DBNull.Value });
                 await using var rdr = await cmd.ExecuteReaderAsync();
                 while (await rdr.ReadAsync())
@@ -94,7 +96,8 @@ namespace EPPs.Controllers
                     {
                         Codigo = rdr.GetString(0),
                         Fecha = rdr.GetDateTime(1),
-                        Observacion = rdr.GetString(2)
+                        Observacion = rdr.GetString(2),
+                        Estado = rdr.GetString(3)
                     });
                 }
             }
@@ -109,7 +112,7 @@ namespace EPPs.Controllers
                     FROM 
                         dbo.r_empleado 
                     WHERE 
-                        dbo.r_empleado.codigo_emp = @codigo_emp;";
+                        dbo.r_empleado.codigo_emp LIKE '00' + RIGHT(@codigo_emp,LEN(@codigo_emp)-2);";
 
                 await using var cmd2 = new SqlCommand(sqlNombre, conn);
                 cmd2.Parameters.Add(new SqlParameter("@codigo_emp", SqlDbType.NVarChar, 200) { Value = codigo_emp });
@@ -141,10 +144,16 @@ namespace EPPs.Controllers
                     dbo.c_articulo.codigo_art codigo_art,
                     dbo.c_articulo.nombre_art articulo,
                     dbo.i_det_prev_inve.cantidad_dpv cantidad,
-                    dbo.i_det_prev_inve.codigo_efc
+                    dbo.i_det_prev_inve.codigo_efc,
+                    dbo.i_est_prev_inve.nombre_epi estado,
+                    dbo.i_cab_prev_inve.fecha_efect_cpi entrega,
+                    dbo.d_est_fisi_cost.nombre_efc CentroCosto
                 FROM 
                     dbo.i_det_prev_inve INNER JOIN
-                    dbo.c_articulo ON dbo.i_det_prev_inve.codigo_art = dbo.c_articulo.codigo_art
+                    dbo.c_articulo ON dbo.i_det_prev_inve.codigo_art = dbo.c_articulo.codigo_art INNER JOIN
+                    dbo.i_cab_prev_inve ON dbo.i_cab_prev_inve.codigo_cpi = dbo.i_det_prev_inve.codigo_cpi INNER JOIN
+                    dbo.i_est_prev_inve ON dbo.i_est_prev_inve.codigo_epi = dbo.i_cab_prev_inve.codigo_epi LEFT OUTER JOIN
+                    dbo.d_est_fisi_cost ON dbo.d_est_fisi_cost.codigo_efc = dbo.i_det_prev_inve.codigo_efc
                 WHERE 
                     dbo.i_det_prev_inve.codigo_cpi = @codigo_cpi
                 ORDER BY 
@@ -174,7 +183,10 @@ namespace EPPs.Controllers
                         CodigoArticulo = rdr.GetString(1),   // <-- Nuevo, se llena el código
                         Articulo = rdr.GetString(2),
                         Cantidad = rdr.GetDecimal(3),
-                        CodigoCentroCosto = rdr.IsDBNull(4) ? null : rdr.GetString(4)
+                        CodigoCentroCosto = rdr.IsDBNull(4) ? null : rdr.GetString(4),
+                        Estado = rdr.IsDBNull(4) ? null : rdr.GetString(5),
+                        Entrega = rdr.GetDateTime(6),
+                        CentroCosto = rdr.IsDBNull(7) ? null : rdr.GetString(7),
                     });
                 }
             }
@@ -256,6 +268,24 @@ namespace EPPs.Controllers
 
             var connStr = _config.GetConnectionString(_connection);
 
+            // 1) Estado del cabecero
+            const string sqlEstado = @"SELECT TOP 1 e.nombre_epi
+                               FROM dbo.i_cab_prev_inve
+                               LEFT JOIN dbo.i_est_prev_inve e ON e.codigo_epi = dbo.i_cab_prev_inve.codigo_epi
+                               WHERE dbo.i_cab_prev_inve.codigo_cpi = @codigo_cpi;";
+            await using var cn1 = new SqlConnection(_config.GetConnectionString(_connection));
+            await cn1.OpenAsync();
+            await using (var cmdE = new SqlCommand(sqlEstado, cn1))
+            {
+                cmdE.Parameters.Add(new SqlParameter("@codigo_cpi", SqlDbType.NVarChar, 50) { Value = req.CodigoCpi });
+                var estado = (string?)await cmdE.ExecuteScalarAsync() ?? "";
+                if (estado.Equals("Aprobado", StringComparison.OrdinalIgnoreCase))
+                {
+                    return StatusCode(400, new { message = "El cabecero está Aprobado. No se pueden modificar los detalles." });
+                }
+            }
+
+            //Guardamos si no es de lectura
             const string SQL_UPD_DET = @"
                 UPDATE 
                     dbo.i_det_prev_inve
@@ -387,13 +417,15 @@ namespace EPPs.Controllers
                             dbo.i_cab_prev_inve
                         SET 
                             codigo_epi = @epi,
-                            s_u_codigo_usu = '004',
-                            obser_tribu_cpi = 'Documento actualizado desde Tablet el ' + convert(varchar,getdate()) 
+                            s_u_codigo_usu = @codigo_usu,
+                            obser_tribu_cpi = 'Documento actualizado desde Tablet el ' + convert(varchar,getdate()),
+                            fecha_efect_cpi = getdate()
                         WHERE 
                             codigo_cpi IN ({inHdr});";
 
                     await using var cmdHdrUpd = new SqlCommand(sqlUpdHdr, cn, (SqlTransaction)tx);
                     cmdHdrUpd.Parameters.Add(new SqlParameter("@epi", SqlDbType.NVarChar, 10) { Value = estadoEpi });
+                    cmdHdrUpd.Parameters.Add(new SqlParameter("@codigo_usu", SqlDbType.NVarChar, 3) { Value = _codigo_usu_aprueba });
                     for (int i = 0; i < headerIds.Count; i++)
                         cmdHdrUpd.Parameters.Add(new SqlParameter($"@h{i}", SqlDbType.NVarChar, 50) { Value = headerIds[i] });
 
@@ -511,7 +543,7 @@ namespace EPPs.Controllers
 
 
         [HttpGet]
-        public async Task<IActionResult> HistorialArticulo(string codigoEmp, string q)
+        public async Task<IActionResult> HistorialArticulo(string codigoEmp, string q, string? exclude)
         {
             if (string.IsNullOrWhiteSpace(codigoEmp) || string.IsNullOrWhiteSpace(q))
                 return Json(Array.Empty<object>());
@@ -519,33 +551,35 @@ namespace EPPs.Controllers
             var cs = _config.GetConnectionString(_connection);
             // Filtrar por los últimos 12 meses y artículos cuyo nombre empiece por "q"
             const string sql = @"
-                SELECT TOP (200)
-                    c.fecha_elabo_cpi,
+                SELECT
+                    i_cab_prev_inve.fecha_elabo_cpi,
                     a.nombre_art,
                     d.cantidad_dpv
                 FROM 
                     dbo.i_det_prev_inve AS d
-                    INNER JOIN dbo.i_cab_prev_inve AS c ON c.codigo_cpi = d.codigo_cpi
+                    INNER JOIN dbo.i_cab_prev_inve ON dbo.i_cab_prev_inve.codigo_cpi = d.codigo_cpi
                     INNER JOIN dbo.c_articulo AS a ON a.codigo_art = d.codigo_art 
-                    INNER JOIN dbo.i_det_comp_inve as i ON i.codigo_dpv = d.codigo_dpv -- Solo articulos del previo entregados 
-                WHERE c.codigo_epi = @codigo_epi
-                    --AND c.observacion_cpi LIKE 'EPP%'
-                    AND c.codigo_tti = @codigo_tti
-                    AND c.codigo_emp = @emp
+                    --INNER JOIN dbo.i_det_comp_inve as i ON i.codigo_dpv = d.codigo_dpv -- Solo articulos del previo entregados 
+                WHERE dbo.i_cab_prev_inve.codigo_epi = @codigo_epi
+                    --AND dbo.i_cab_prev_inve.observacion_cpi LIKE 'EPP%'
+                    AND dbo.i_cab_prev_inve.codigo_tti = @codigo_tti
+                    AND dbo.i_cab_prev_inve.codigo_emp LIKE '00' + RIGHT(@codigo_emp,LEN(@codigo_emp)-2)
                     AND a.nombre_art LIKE @pat
-                    AND c.fecha_elabo_cpi >= DATEADD(MONTH, -12, GETDATE())
+                    AND dbo.i_cab_prev_inve.fecha_elabo_cpi >= DATEADD(MONTH, -12, GETDATE())
+                    AND d.codigo_cpi NOT IN (SELECT codigo_cpi from dbo.i_det_prev_inve WHERE codigo_dpv = @exclude)
                 ORDER BY 
-                    c.fecha_elabo_cpi DESC;";
+                    dbo.i_cab_prev_inve.fecha_elabo_cpi DESC;";
 
             var list = new List<object>();
 
             await using var cn = new SqlConnection(cs);
             await cn.OpenAsync();
             await using var cmd = new SqlCommand(sql, cn);
-            cmd.Parameters.Add(new SqlParameter("@emp", SqlDbType.NVarChar, 50) { Value = codigoEmp });
+            cmd.Parameters.Add(new SqlParameter("@codigo_emp", SqlDbType.NVarChar, 50) { Value = codigoEmp });
             cmd.Parameters.Add(new SqlParameter("@pat", SqlDbType.NVarChar, 200) { Value = q + "%" });
             cmd.Parameters.Add(new SqlParameter("@codigo_epi", SqlDbType.NVarChar, 200) { Value = (object?)_codigo_epi_aprobado ?? DBNull.Value });
             cmd.Parameters.Add(new SqlParameter("@codigo_tti", SqlDbType.NVarChar, 200) { Value = (object?)_codigo_tti_consumo ?? DBNull.Value });
+            cmd.Parameters.Add(new SqlParameter("@exclude", SqlDbType.NVarChar, 50) { Value = (object?)exclude ?? DBNull.Value });
 
             await using var rdr = await cmd.ExecuteReaderAsync();
             while (await rdr.ReadAsync())
@@ -608,11 +642,11 @@ namespace EPPs.Controllers
                     break;
                 default:
                     _connection = "defaultConnection";
-                    _codigo_nef = "";          //Nivel del centro de costo
-                    _codigo_epi_aprobado = ""; //Estado previo inventario
-                    _codigo_epi_anulado = "";  //Estado previo inventario
-                    _codigo_usu_aprueba = "";  //Usuario
-                    _codigo_tti_consumo = "";  //Tipo de comprobante de inventario
+                    _codigo_nef = "00102";          //Nivel del centro de costo
+                    _codigo_epi_aprobado = "00103"; //Estado previo inventario
+                    _codigo_epi_anulado = "00105";  //Estado previo inventario
+                    _codigo_usu_aprueba = "004";  //Usuario MPAGUAY
+                    _codigo_tti_consumo = "001029";  //Tipo de comprobante de inventario
                     break;
             }
         }
@@ -638,73 +672,46 @@ namespace EPPs.Controllers
             switch (empresa)
             {
                 case "Bellarosa":
-                    _connection = "bellarosaConnection";
-                    _codigo_nef = "00102";          //Nivel del centro de costo
-                    _codigo_epi_aprobado = "00103"; //Estado previo inventario
-                    _codigo_epi_anulado = "00105";  //Estado previo inventario
-                    _codigo_usu_aprueba = "017";  //Usuario MPAGUAY
-                    _codigo_tti_consumo = "001005";  //Tipo de comprobante de inventario
+                    connName = "bellarosaConnection";
                     break;
                 case "Qualisa":
-                    _connection = "qualisaConnection";
-                    _codigo_nef = "00102";          //Nivel del centro de costo
-                    _codigo_epi_aprobado = "00103"; //Estado previo inventario
-                    _codigo_epi_anulado = "00105";  //Estado previo inventario
-                    _codigo_usu_aprueba = "138";  //Usuario MPAGUAY
-                    _codigo_tti_consumo = "001012";  //Tipo de comprobante de inventario
+                    connName = "qualisaConnection";
                     break;
                 case "Royal Flowers":
-                    _connection = "royalFlowersConnection";
-                    _codigo_nef = "00102";          //Nivel del centro de costo
-                    _codigo_epi_aprobado = "00103"; //Estado previo inventario
-                    _codigo_epi_anulado = "00104";  //Estado previo inventario
-                    _codigo_usu_aprueba = "465";  //Usuario MPAGUAY
-                    _codigo_tti_consumo = "001012";  //Tipo de comprobante de inventario
+                    connName = "royalFlowersConnection";
                     break;
                 case "Sisapamba":
-                    _connection = "sisapambaConnection";
-                    _codigo_nef = "00102";          //Nivel del centro de costo
-                    _codigo_epi_aprobado = "00103"; //Estado previo inventario
-                    _codigo_epi_anulado = "00105";  //Estado previo inventario
-                    _codigo_usu_aprueba = "004";  //Usuario MPAGUAY
-                    _codigo_tti_consumo = "001029";  //Tipo de comprobante de inventario
+                    connName = "sisapambaConnection";
                     break;
                 case "Continental Logistics":
-                    _connection = "continentalLogisticsConnection";
-                    _codigo_nef = "00102";          //Nivel del centro de costo
-                    _codigo_epi_aprobado = "00103"; //Estado previo inventario
-                    _codigo_epi_anulado = "00105";  //Estado previo inventario
-                    _codigo_usu_aprueba = "026";  //Usuario MPAGUAY
-                    _codigo_tti_consumo = "001005";  //Tipo de comprobante de inventario
+                    connName = "continentalLogisticsConnection";
                     break;
                 default:
-                    _connection = "defaultConnection";
-                    _codigo_nef = "";          //Nivel del centro de costo
-                    _codigo_epi_aprobado = ""; //Estado previo inventario
-                    _codigo_epi_anulado = "";  //Estado previo inventario
-                    _codigo_usu_aprueba = "";  //Usuario
-                    _codigo_tti_consumo = "";  //Tipo de comprobante de inventario
+                    connName = "defaultConnection";
                     break;
             }
 
             var cs = _config.GetConnectionString(connName);
             const string sql = @"
                 SELECT 
-                    c.codigo_cpi,
-                    c.fecha_elabo_cpi,
+                    i_cab_prev_inve.codigo_cpi,
+                    i_cab_prev_inve.fecha_elabo_cpi,
                     a.nombre_art,
                     d.cantidad_dpv,
-                    ISNULL(REPLACE(c.pdf_normal_cpi,'\\10.39.10.30\EPPs\wwwroot\uploads\fotos\','http://10.39.10.30:3777/uploads/fotos/'),'') AS foto
-                FROM dbo.i_cab_prev_inve c
-                INNER JOIN dbo.i_det_prev_inve d ON d.codigo_cpi = c.codigo_cpi
+                    ISNULL(REPLACE(dbo.i_cab_prev_inve.pdf_normal_cpi,'\\10.39.10.30\EPPs\wwwroot\uploads\fotos\','http://10.39.10.30:3777/uploads/fotos/'),'') AS foto
+                FROM dbo.i_cab_prev_inve
+                INNER JOIN dbo.i_det_prev_inve d ON d.codigo_cpi = dbo.i_cab_prev_inve.codigo_cpi
                 INNER JOIN dbo.c_articulo a ON a.codigo_art = d.codigo_art
-                INNER JOIN dbo.i_det_comp_inve e ON e.codigo_dpv = d.codigo_dpv -- Solo entregados
-                WHERE --(@empresa = '' OR @empresa IS NULL OR c.empresa = @empresa)
+                --INNER JOIN dbo.i_det_comp_inve e ON e.codigo_dpv = d.codigo_dpv -- Solo entregados
+                WHERE --(@empresa = '' OR @empresa IS NULL OR dbo.i_cab_prev_inve.empresa = @empresa)
                   --AND 
-                  (@codigo_emp = '' OR @codigo_emp IS NULL OR c.codigo_emp = @codigo_emp)
-                  AND (@desde IS NULL OR c.fecha_elabo_cpi >= @desde)
-                  AND (@hasta IS NULL OR c.fecha_elabo_cpi < DATEADD(DAY,1,@hasta))
-                ORDER BY c.codigo_cpi, c.fecha_elabo_cpi, a.nombre_art;";
+                  (@codigo_emp = '' OR @codigo_emp IS NULL OR dbo.i_cab_prev_inve.codigo_emp LIKE '00' + RIGHT(@codigo_emp,LEN(@codigo_emp)-2)) AND
+                  (((@desde IS NULL OR dbo.i_cab_prev_inve.fecha_elabo_cpi >= @desde)
+                  AND (@hasta IS NULL OR dbo.i_cab_prev_inve.fecha_elabo_cpi < DATEADD(DAY,1,@hasta))) OR 
+                  ((@desde IS NULL OR dbo.i_cab_prev_inve.fecha_efect_cpi >= @desde)
+                  AND (@hasta IS NULL OR dbo.i_cab_prev_inve.fecha_efect_cpi < DATEADD(DAY,1,@hasta)))) 
+                  AND dbo.i_cab_prev_inve.CODIGO_EPI = @codigo_epi
+                ORDER BY dbo.i_cab_prev_inve.codigo_cpi, dbo.i_cab_prev_inve.fecha_elabo_cpi, a.nombre_art;";
 
             var grupos = new Dictionary<string, ReporteGrupoVM>();
 
@@ -713,6 +720,7 @@ namespace EPPs.Controllers
             await using var cmd = new SqlCommand(sql, cn);
             cmd.Parameters.Add(new SqlParameter("@empresa", SqlDbType.NVarChar, 100) { Value = (object?)empresa ?? DBNull.Value });
             cmd.Parameters.Add(new SqlParameter("@codigo_emp", SqlDbType.NVarChar, 50) { Value = (object?)codigo_emp ?? DBNull.Value });
+            cmd.Parameters.Add(new SqlParameter("@codigo_epi", SqlDbType.NVarChar, 50) { Value = (object?)_codigo_epi_aprobado ?? DBNull.Value });
             cmd.Parameters.Add(new SqlParameter("@desde", SqlDbType.DateTime) { Value = (object?)desde ?? DBNull.Value });
             cmd.Parameters.Add(new SqlParameter("@hasta", SqlDbType.DateTime) { Value = (object?)hasta ?? DBNull.Value });
 
@@ -752,7 +760,7 @@ namespace EPPs.Controllers
 	                    dbo.r_estruc_organi ON dbo.r_estruc_organi.codigo_eor = dbo.r_empleado.codigo_eor INNER JOIN
 	                    dbo.r_cargo on dbo.r_cargo.codigo_cag = dbo.r_empleado.codigo_cag
                     WHERE
-                        dbo.r_empleado.codigo_emp = @codigo_emp;";
+                        dbo.r_empleado.codigo_emp LIKE '00' + RIGHT(@codigo_emp,LEN(@codigo_emp)-2);";
                 await using var cmdEmp = new SqlCommand(sqlEmp, cn2);
                 cmdEmp.Parameters.Add(new SqlParameter("@codigo_emp", SqlDbType.NVarChar, 50) { Value = codigo_emp });
                 var result = await cmdEmp.ExecuteScalarAsync();
@@ -762,7 +770,6 @@ namespace EPPs.Controllers
             {
                 ViewBag.NombreEmpleado = "Empleado no encontrado...";
             }
-
 
             vm.Grupos = grupos.Values.ToList();
             return View(vm);
